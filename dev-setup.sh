@@ -29,17 +29,17 @@ handle_options() {
 
             -l | --local)
                 gradle build -x test
-                java -Dspring.profiles.active=local -jar /src/build/libs/*.jar
+                java -Dspring.profiles.active=local -jar /src/build/libs/quant-ai-persistence-etl.jar
             ;;
 
             -s | --stag | --staging)
                 gradle build -x test
-                java -Dspring.profiles.active=stag -jar /src/build/libs/*.jar
+                java -Dspring.profiles.active=stag -jar /src/build/libs/quant-ai-persistence-etl.jar
             ;;
 
             -p | --prod | --production)
                 gradle build -x test
-                java -Dspring.profiles.active=prod -jar /src/build/libs/*.jar
+                java -Dspring.profiles.active=prod -jar /src/build/libs/quant-ai-persistence-etl.jar
             ;;
 
             *)
