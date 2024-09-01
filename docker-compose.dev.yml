@@ -11,16 +11,9 @@ services:
     ports: [10070:8080]
     volumes: [.:/src]
     networks: [quant-ai-persistence-middleware, quant-ai-persistence-etl, quant-ai-mongo-db]
-    entrypoint: [sleep, infinity]
+    entrypoint: [/bin/sh, /src/dev-setup.sh, -c]
     init: true
 
-  quant-ai-persistence-etl-setup:
-    container_name: quant-ai-persistence-etl-setup
-    build:
-      context: .
-      target: dev
-    volumes: [.:/src]
-    entrypoint: [/bin/sh, /src/dev-setup.sh, -b]
 
 networks:
   quant-ai-mongo-db:

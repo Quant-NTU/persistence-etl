@@ -4,6 +4,8 @@ usage() {
     echo "Options:"
     echo "-h, --help                    Display this help message"
     echo "-b, --build                   Compile and Build the current gradle project"
+    echo "-c, --continuous              Compile, Build and Serve using local configs in a continuous way"
+    echo "-d, --stop                    Stop the continous built process"
     echo "-t, --test                    Compile, Build and Test the current gradle project"
     echo "-l, --local                   Compile, Build and Serve using local configs"
     echo "-s, --stag,  --staging        Compile, Build and Serve using stating configs"
@@ -22,9 +24,17 @@ handle_options() {
                 gradle build -x test
             ;;
 
+            -c | --continuous)
+                gradle build --continuous --quiet &
+                gradle bootRun --args='--spring.profiles.active=local'
+            ;;
+
+            -d | --stop)
+                gradle --stop
+            ;;
+
             -t | --test)
-                gradle test
-                gradle build
+                gradle test --continuous
             ;;
 
             -l | --local)
