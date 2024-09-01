@@ -1,0 +1,1 @@
+rootProject.name = "quant-ai-persistence-etl"

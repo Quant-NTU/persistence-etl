@@ -1,0 +1,55 @@
+#!/usr/bin/env bash
+usage() {
+    echo "Usage: $0 [OPTIONS]"
+    echo "Options:"
+    echo "-h, --help                    Display this help message"
+    echo "-b, --build                   Compile and Build the current gradle project"
+    echo "-t, --test                    Compile, Build and Test the current gradle project"
+    echo "-l, --local                   Compile, Build and Serve using local configs"
+    echo "-s, --stag,  --staging        Compile, Build and Serve using stating configs"
+    echo "-p, --prod,  --production     Compile, Build and Serve using prodution configs"
+}
+
+handle_options() {
+    while [ $# -gt 0 ]; do
+        case $1 in
+            -h | --help)
+                usage
+                exit 0
+            ;;
+
+            -b | --build)
+                gradle build -x test
+            ;;
+
+            -t | --test)
+                gradle test
+                gradle build
+            ;;
+
+            -l | --local)
+                gradle build -x test
+                java -Dspring.profiles.active=local -jar /src/build/libs/*.jar
+            ;;
+
+            -s | --stag | --staging)
+                gradle build -x test
+                java -Dspring.profiles.active=stag -jar /src/build/libs/*.jar
+            ;;
+
+            -p | --prod | --production)
+                gradle build -x test
+                java -Dspring.profiles.active=prod -jar /src/build/libs/*.jar
+            ;;
+
+            *)
+                echo "Invalid option: $1" >&2
+                usage
+                exit 1
+            ;;
+        esac
+        shift
+    done
+}
+
+handle_options "$@"

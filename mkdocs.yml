@@ -1,0 +1,11 @@
+site_name: etl
+repo_url: https://github.com/Quant-NTU/persistence-etl
+repo_name: Quant AI - ETL
+
+theme:
+  name: material
+
+plugins:
+  - search
+  - autorefs  
+  - mermaid2

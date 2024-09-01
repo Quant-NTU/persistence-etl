@@ -1,0 +1,20 @@
+services:
+  quant-ai-persistence-etl:
+    container_name: quant-ai-persistence-etl
+    restart: unless-stopped
+    build:
+      context: .
+      target: stag
+    ports: [10070:8080]
+    volumes: [.:/src]
+    networks: [quant-ai-persistence-middleware, quant-ai-persistence-etl, quant-ai-mongo-db]
+    entrypoint: [sleep, infinity]
+    init: true
+
+networks:
+  quant-ai-mongo-db:
+    driver: bridge
+  quant-ai-persistence-middleware:
+    driver: bridge
+  quant-ai-persistence-etl:
+    driver: bridge
