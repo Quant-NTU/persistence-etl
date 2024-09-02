@@ -4,8 +4,7 @@ ARG OPENJDK_VERSION=21-slim
 FROM gradle:${GRADLE_VERSION} AS dev
 WORKDIR /src
 
-FROM gradle:${GRADLE_VERSION} AS gradle
-WORKDIR /src
+FROM dev AS gradle
 COPY --chown=gradle:gradle . /src
 RUN gradle build -x test
 
