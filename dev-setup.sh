@@ -25,7 +25,7 @@ handle_options() {
             ;;
 
             -c | --continuous)
-                gradle build --continuous --quiet &
+                gradle build -x test --continuous --quiet &
                 gradle bootRun --args='--spring.profiles.active=local'
             ;;
 
