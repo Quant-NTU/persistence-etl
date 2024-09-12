@@ -1,3 +1,11 @@
-build
-bin
-.gradle
+# dir
+.idea/*
+.gradle/*
+.kotlin/*
+bin/*
+build/*
+gradle/*
+
+# files
+gradlew
+gradlew.bat
