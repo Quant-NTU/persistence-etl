@@ -21,10 +21,12 @@ handle_options() {
             ;;
 
             -b | --build)
+                gradle clean
                 gradle build
             ;;
 
             -c | --continuous)
+                gradle clean
                 gradle build --continuous --quiet &
                 gradle bootRun --args='--spring.profiles.active=local'
             ;;
@@ -38,16 +40,19 @@ handle_options() {
             ;;
 
             -l | --local)
+                gradle clean
                 gradle build
                 java -Dspring.profiles.active=local -jar /src/build/libs/quant-ai-persistence-etl.jar
             ;;
 
             -s | --stag | --staging)
+                gradle clean
                 gradle build
                 java -Dspring.profiles.active=stag -jar /src/build/libs/quant-ai-persistence-etl.jar
             ;;
 
             -p | --prod | --production)
+                gradle clean
                 gradle build
                 java -Dspring.profiles.active=prod -jar /src/build/libs/quant-ai-persistence-etl.jar
             ;;

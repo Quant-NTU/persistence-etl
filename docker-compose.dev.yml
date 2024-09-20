@@ -8,7 +8,7 @@ services:
       retries: 10
       start_period: 30s
     image: mongo:latest
-    ports: [10000:27017]
+    ports: [ "10000:27017" ]
     volumes: [../data/mongodb-data/configdb:/data/configdb, ../data/mongodb-data/db:/data/db]
     networks: [quant-ai-mongo-db]
 
@@ -17,7 +17,7 @@ services:
     image: timescale/timescaledb:latest-pg16
     environment:
       - POSTGRES_PASSWORD=zxcasdqwe123
-    ports: [10003:5432]
+    ports: [ "10003:5432" ]
     volumes: [../data/timescale-data:/home/postgres/pgdata/data/]
     networks: [quant-ai-timescale-db]
 
@@ -27,12 +27,12 @@ services:
     build:
       context: .
       target: dev
-    ports: [10070:10070]
+    ports: [ "10070:10070" ]
     volumes: [.:/src]
     networks: [quant-ai-persistence-middleware, quant-ai-persistence-etl, quant-ai-mongo-db, quant-ai-timescale-db]
-    entrypoint: [/bin/sh, /src/dev-setup.sh, -c]
+#   entrypoint: [ /bin/sh, /src/dev-setup.sh, -c ]
+    entrypoint: [sleep, infinity]
     init: true
-
 
 networks:
   quant-ai-mongo-db:
