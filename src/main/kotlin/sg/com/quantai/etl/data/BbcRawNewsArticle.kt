@@ -21,5 +21,5 @@ data class BbcRawNewsArticle(
     val uuid: String = ObjectId.get().toString(),
 
     @Id
-    val _id: ObjectId = ObjectId.get() // MongoDB unique ID
+    val _id: ObjectId = ObjectId.get()
 )
