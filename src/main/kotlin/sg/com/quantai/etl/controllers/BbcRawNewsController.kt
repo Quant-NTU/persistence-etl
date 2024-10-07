@@ -7,6 +7,7 @@ import org.springframework.web.bind.annotation.*
 import org.springframework.http.HttpStatus
 import sg.com.quantai.etl.requests.BbcRawNewsArticleRequest
 import sg.com.quantai.etl.services.BbcNewsApiService
+import java.time.LocalDate
 import java.time.LocalDateTime
 
 @RestController
@@ -37,7 +38,7 @@ class BbcRawNewsController(
         val newsArticle = bbcRawNewsRepository.save(
             BbcRawNewsArticle(
                 title = article.title,
-                publishedDate = LocalDateTime.parse(article.publishedDate),
+                publishedDate = LocalDate.parse(article.publishedDate),
                 authors = article.authors,
                 description = article.description,
                 section = article.section,
