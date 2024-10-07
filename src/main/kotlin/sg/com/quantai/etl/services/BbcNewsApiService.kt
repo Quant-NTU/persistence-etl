@@ -10,13 +10,15 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import org.springframework.web.reactive.function.client.WebClient
 import org.springframework.http.MediaType
 import java.time.LocalDate
+import java.time.YearMonth
+import reactor.util.retry.Retry
+import java.time.Duration
 
 
 //  BBCNewsApiService handles API requests and data insertion into MongoDB.
 @Service
 class BbcNewsApiService(
-    @Autowired private val bbcRawNewsRepository: BbcRawNewsRepository,
-    @Autowired private val restTemplate: RestTemplate // To make HTTP calls
+    @Autowired private val bbcRawNewsRepository: BbcRawNewsRepository
 ) {
 
     private val newApiUrl = "https://datasets-server.huggingface.co/"
@@ -29,43 +31,79 @@ class BbcNewsApiService(
             .build()
     }
 
-    // Fetch and save all articles from the API
-    fun fetchAndSaveNewsArticles() {
-        // Step 1: Fetch the first batch to get the total number of rows
-        val initialResponse = fetchRows(0, batchSize)
-        val rootNode: JsonNode = parseResponse(initialResponse)
-        val totalRows = rootNode.path("num_rows_total").asInt()
+    // Fetch and save all articles from the API for multiple months
+    fun fetchAndSaveNewsArticlesForAllMonths() {
+        println("Loading of BBC News Articles - START")
 
-        // Process the first batch of rows
-        processRows(rootNode.path("rows"))
+        // Define the date range: '2017-01' to '2024-09'
+        val startDate = YearMonth.of(2017, 1)
+        val endDate = YearMonth.of(2024, 9)
 
-        // Step 2: Fetch remaining rows in batches of 100
-        for (offset in batchSize until totalRows step batchSize) {
-            val response = fetchRows(offset, batchSize)
-            val nextRootNode = parseResponse(response)
-            processRows(nextRootNode.path("rows"))
+        // Iterate over each month in the date range
+        var currentMonth = startDate
+        while (currentMonth <= endDate) {
+            val configDate = currentMonth.toString() // Format: 'YYYY-MM'
+            println("Fetching data for: $configDate")
+            fetchAndSaveNewsArticlesForDate(configDate)
+            currentMonth = currentMonth.plusMonths(1) // Move to the next month
         }
-
-        print("Successfully saved all articles.")
+        println("Loading of BBC News Articles - END")
     }
 
-    // Helper function to make API requests with pagination
-    private fun fetchRows(offset: Int, length: Int): String {
-        return bbcNewsWebClient()
-            .get()
-            .uri {
-                it.path("/rows")
-                    .queryParam("dataset", "RealTimeData/bbc_news_alltime")
-                    .queryParam("config", "2017-01")
-                    .queryParam("split", "train")
-                    .queryParam("offset", offset.toString())
-                    .queryParam("length", length.toString())
-                    .build()
+    // Fetch and save all articles for a specific date (month)
+    private fun fetchAndSaveNewsArticlesForDate(config: String) {
+        try {
+            // Step 1: Fetch the first batch to get the total number of rows
+            val initialResponse = fetchRows(0, batchSize, config)
+            val rootNode: JsonNode = parseResponse(initialResponse)
+            val totalRows = rootNode.path("num_rows_total").asInt()
+
+            // Process the first batch of rows
+            processRows(rootNode.path("rows"))
+
+            // Step 2: Fetch remaining rows in batches of 100
+            for (offset in batchSize until totalRows step batchSize) {
+                val response = fetchRows(offset, batchSize, config)
+                val nextRootNode = parseResponse(response)
+                processRows(nextRootNode.path("rows"))
             }
-            .accept(MediaType.APPLICATION_JSON)
-            .retrieve()
-            .toEntity(String::class.java)
-            .block()?.body ?: throw RuntimeException("Failed to fetch rows")
+
+            println("Successfully saved all articles for $config.")
+        } catch (ex: Exception) {
+            // Handle errors gracefully and continue with the next month
+            println("Error fetching data for $config: ${ex.message}")
+        }
+    }
+
+    // Helper function to make API requests with pagination for a specific date (config) with retry logic
+    private fun fetchRows(offset: Int, length: Int, config: String): String {
+        return try {
+            bbcNewsWebClient()
+                .get()
+                .uri {
+                    it.path("/rows")
+                        .queryParam("dataset", "RealTimeData/bbc_news_alltime")
+                        .queryParam("config", config) // Date (month) is passed as config
+                        .queryParam("split", "train")
+                        .queryParam("offset", offset.toString())
+                        .queryParam("length", length.toString())
+                        .build()
+                }
+                .accept(MediaType.APPLICATION_JSON)
+                .retrieve()
+                .bodyToMono(String::class.java)
+                .retryWhen(
+                    Retry.fixedDelay(3, Duration.ofSeconds(5)) // Retry up to 3 times with a 5-second delay
+                        .filter { throwable ->
+                            throwable is org.springframework.web.reactive.function.client.WebClientResponseException &&
+                                    throwable.statusCode.is5xxServerError
+                        } // Retry only on 5xx server errors
+                )
+                .block() ?: throw RuntimeException("Failed to fetch rows")
+        } catch (ex: Exception) {
+            println("Error fetching rows for config: $config, offset: $offset. Error: ${ex.message}")
+            throw ex // Rethrow to propagate the error to fetchAndSaveNewsArticlesForDate
+        }
     }
 
     // Helper function to parse the response JSON

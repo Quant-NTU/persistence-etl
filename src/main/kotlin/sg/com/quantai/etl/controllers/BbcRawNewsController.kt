@@ -54,7 +54,7 @@ class BbcRawNewsController(
     // We can make a POST request to "/news/fetch" whenever we want to trigger the fetching process
     @PostMapping("/fetch")
     fun fetchAndSaveNews(): ResponseEntity<String> {
-        bbcNewsApiService.fetchAndSaveNewsArticles()
+        bbcNewsApiService.fetchAndSaveNewsArticlesForAllMonths()
         return ResponseEntity("News articles fetched and saved.", HttpStatus.OK)
     }
 }
