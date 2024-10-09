@@ -1,0 +1,29 @@
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+      types: [opened, synchronize, reopened]
+
+name: SonarQube Scan
+jobs:
+  sonarqube:
+    name: SonarQube Trigger
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checking out
+      uses: actions/checkout@v4
+      with:
+        # Disabling shallow clone is recommended for improving relevancy of reporting
+        fetch-depth:
+    - name: SonarQube Scan
+      uses: sonarsource/sonarqube-scan-action@v2.2.0
+      env:
+        SONAR_HOST_URL: http://100.126.142.31:9000
+        SONAR_TOKEN: sqp_64ca281549d421607bcbd2b40b710e2d1ec6d8de
+      with:
+          args: >
+            -Dsonar.projectKey=persistence-etl
+            -Dsonar.sources=.
+            -Dsonar.host.url=http://100.126.142.31:9000
+            -Dsonar.login=sqp_f7b24c10259e667c32c2565fce8c8a59dbf6ca40  
