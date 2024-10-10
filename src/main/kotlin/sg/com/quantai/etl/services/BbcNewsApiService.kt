@@ -11,7 +11,9 @@ import org.springframework.http.MediaType
 import java.time.LocalDate
 import java.time.YearMonth
 import reactor.util.retry.Retry
+import sg.com.quantai.etl.exceptions.NewsApiException
 import java.time.Duration
+
 
 @Service
 class BbcNewsApiService(
@@ -43,34 +45,34 @@ class BbcNewsApiService(
         println("Loading of BBC News Articles - END")
     }
 
-    private fun fetchAndSaveNewsArticlesForDate(config: String) {
+    private fun fetchAndSaveNewsArticlesForDate(configDate: String) {
         try {
-            val initialResponse = fetchRows(0, batchSize, config)
+            val initialResponse = fetchRows(0, batchSize, configDate)
             val rootNode: JsonNode = parseResponse(initialResponse)
             val totalRows = rootNode.path("num_rows_total").asInt()
 
-            processRows(rootNode.path("rows"))
+            saveArticlesFromRows(rootNode.path("rows"))
 
             for (offset in batchSize until totalRows step batchSize) {
-                val response = fetchRows(offset, batchSize, config)
+                val response = fetchRows(offset, batchSize, configDate)
                 val nextRootNode = parseResponse(response)
-                processRows(nextRootNode.path("rows"))
+                saveArticlesFromRows(nextRootNode.path("rows"))
             }
 
-            println("Successfully saved all articles for $config.")
+            println("Successfully saved all articles for $configDate.")
         } catch (ex: Exception) {
-            println("Error fetching data for $config: ${ex.message}")
+            println("Error fetching data for $configDate: ${ex.message}")
         }
     }
 
-    private fun fetchRows(offset: Int, length: Int, config: String): String {
+    private fun fetchRows(offset: Int, length: Int, configDate: String): String {
         return try {
             bbcNewsWebClient()
                 .get()
                 .uri {
                     it.path("/rows")
                         .queryParam("dataset", "RealTimeData/bbc_news_alltime")
-                        .queryParam("config", config)
+                        .queryParam("config", configDate)
                         .queryParam("split", "train")
                         .queryParam("offset", offset.toString())
                         .queryParam("length", length.toString())
@@ -86,10 +88,9 @@ class BbcNewsApiService(
                                     throwable.statusCode.is5xxServerError
                         }
                 )
-                .block() ?: throw RuntimeException("Failed to fetch rows")
+                .block() ?: throw NewsApiException("Failed to fetch rows for configDate: $configDate, offset: $offset, length: $length")
         } catch (ex: Exception) {
-            println("Error fetching rows for config: $config, offset: $offset. Error: ${ex.message}")
-            throw ex
+            throw NewsApiException("Failed with general error: ${ex.message}", null, ex.message)
         }
     }
 
@@ -98,7 +99,7 @@ class BbcNewsApiService(
         return objectMapper.readTree(response)
     }
 
-    private fun processRows(rows: JsonNode) {
+    private fun saveArticlesFromRows(rows: JsonNode) {
         rows.forEach { item ->
             val row = item.path("row")
             val newsArticle = BbcRawNewsArticle(
