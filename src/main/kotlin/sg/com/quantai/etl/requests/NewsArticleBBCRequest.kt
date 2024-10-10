@@ -1,6 +1,6 @@
 package sg.com.quantai.etl.requests
 
-class BbcRawNewsArticleRequest(
+class NewsArticleBBCRequest(
     val title: String,
     val publishedDate: String,
     val authors: String?,

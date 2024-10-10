@@ -2,27 +2,27 @@ package sg.com.quantai.etl.services
 
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Service
-import sg.com.quantai.etl.data.BbcRawNewsArticle
-import sg.com.quantai.etl.data.BbcTransformedNewsArticle
-import sg.com.quantai.etl.repositories.BbcRawNewsRepository
-import sg.com.quantai.etl.repositories.BbcTransformedNewsRepository
+import sg.com.quantai.etl.data.NewsArticleBBC
+import sg.com.quantai.etl.data.NewsArticle
+import sg.com.quantai.etl.repositories.NewsArticlesBBCRepository
+import sg.com.quantai.etl.repositories.NewsArticlesRepository
 import java.util.stream.Collectors
 
 @Service
-class BbcNewsTransformationService(
-    @Autowired private val bbcRawNewsRepository: BbcRawNewsRepository,
-    @Autowired private val bbcTransformedNewsRepository: BbcTransformedNewsRepository
+class NewsArticlesService(
+    @Autowired private val newsArticlesBBCRepository: NewsArticlesBBCRepository,
+    @Autowired private val newsArticlesRepository: NewsArticlesRepository
 ) {
     fun transformAndSaveNewsArticles() {
         println("Transformation started.")
-        val rawArticles: List<BbcRawNewsArticle> = bbcRawNewsRepository.findAll()
+        val rawArticles: List<NewsArticleBBC> = newsArticlesBBCRepository.findAll()
 
-        val transformedArticles: List<BbcTransformedNewsArticle> = rawArticles.stream()
+        val transformedArticles: List<NewsArticle> = rawArticles.stream()
             .filter {
                 it.title.isNotBlank() && it.description?.isNotBlank() == true && it.content.isNotBlank()
             }
             .map { rawArticle ->
-                BbcTransformedNewsArticle(
+                NewsArticle(
                     title = rawArticle.title,
                     publishedDate = rawArticle.publishedDate,
                     description = rawArticle.description ?: "",
@@ -30,7 +30,7 @@ class BbcNewsTransformationService(
                 )
             }.collect(Collectors.toList())
 
-        bbcTransformedNewsRepository.saveAll(transformedArticles)
+        newsArticlesRepository.saveAll(transformedArticles)
 
         println("Transformation completed. ${transformedArticles.size} transformed articles loaded into database.")
     }

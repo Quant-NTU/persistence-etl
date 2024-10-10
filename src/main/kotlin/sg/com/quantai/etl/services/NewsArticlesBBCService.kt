@@ -2,8 +2,8 @@ package sg.com.quantai.etl.services
 
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Service
-import sg.com.quantai.etl.data.BbcRawNewsArticle
-import sg.com.quantai.etl.repositories.BbcRawNewsRepository
+import sg.com.quantai.etl.data.NewsArticleBBC
+import sg.com.quantai.etl.repositories.NewsArticlesBBCRepository
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
 import org.springframework.web.reactive.function.client.WebClient
@@ -11,13 +11,13 @@ import org.springframework.http.MediaType
 import java.time.LocalDate
 import java.time.YearMonth
 import reactor.util.retry.Retry
-import sg.com.quantai.etl.exceptions.NewsApiException
+import sg.com.quantai.etl.exceptions.NewsArticlesException
 import java.time.Duration
 
 
 @Service
-class BbcNewsApiService(
-    @Autowired private val bbcRawNewsRepository: BbcRawNewsRepository
+class NewsArticlesBBCService(
+    @Autowired private val newsArticlesBBCRepository: NewsArticlesBBCRepository
 ) {
 
     private val newApiUrl = "https://datasets-server.huggingface.co/"
@@ -88,9 +88,9 @@ class BbcNewsApiService(
                                     throwable.statusCode.is5xxServerError
                         }
                 )
-                .block() ?: throw NewsApiException("Failed to fetch rows for configDate: $configDate, offset: $offset, length: $length")
+                .block() ?: throw NewsArticlesException("Failed to fetch rows for configDate: $configDate, offset: $offset, length: $length")
         } catch (ex: Exception) {
-            throw NewsApiException("Failed with general error: ${ex.message}", null, ex.message)
+            throw NewsArticlesException("Failed with general error: ${ex.message}", null, ex.message)
         }
     }
 
@@ -102,7 +102,7 @@ class BbcNewsApiService(
     private fun saveArticlesFromRows(rows: JsonNode) {
         rows.forEach { item ->
             val row = item.path("row")
-            val newsArticle = BbcRawNewsArticle(
+            val newsArticle = NewsArticleBBC(
                 title = row.path("title").asText(),
                 publishedDate = LocalDate.parse(row.path("published_date").asText()),
                 authors = row.path("authors").asText(),
@@ -113,7 +113,7 @@ class BbcNewsApiService(
                 topImage = row.path("top_image").asText()
             )
 
-            bbcRawNewsRepository.save(newsArticle)
+            newsArticlesBBCRepository.save(newsArticle)
         }
     }
 }
