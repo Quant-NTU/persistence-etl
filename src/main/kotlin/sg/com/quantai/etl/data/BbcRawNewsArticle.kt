@@ -17,9 +17,6 @@ data class BbcRawNewsArticle(
     val link: String,
     val topImage: String?,
 
-    @Indexed(unique = true)
-    val uuid: String = ObjectId.get().toString(),
-
     @Id
     val _id: ObjectId = ObjectId.get()
 )
