@@ -1,0 +1,37 @@
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+      types: [opened, synchronize, reopened]
+name: Trivy Build
+jobs:
+  Trivy Build:
+    name: Trivy Scan Trigger
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Step to print the commit SHA to verify it's correct
+      #- name: Print commit SHA
+      #  run: echo "${{ GITEA_COMMIT_SHA }}"
+
+      # Step to build the Docker image
+      #- name: Build an image from Dockerfile
+      #  run: |
+      #    docker build -t docker.io/my-organization/my-app:${{ GITEA_COMMIT_SHA }} .
+      
+      # Step to list Docker images to verify the image was built
+      #- name: List Docker images
+      #  run: docker images
+        
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@0.20.0
+        with:
+          image-ref: 'staging-quant-ai-persistence-etl'
+          format: 'table'
+          exit-code: '1'
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          severity: 'CRITICAL,HIGH'
