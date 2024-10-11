@@ -4,4 +4,6 @@ import sg.com.quantai.etl.data.NewsArticleBBC
 
 import org.springframework.data.mongodb.repository.MongoRepository
 
-interface NewsArticleBBCRepository : MongoRepository<NewsArticleBBC, String> {}
+interface NewsArticleBBCRepository : MongoRepository<NewsArticleBBC, String> {
+    fun findByLink(link: String): NewsArticleBBC?
+}
