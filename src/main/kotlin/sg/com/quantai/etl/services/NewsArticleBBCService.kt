@@ -1,78 +1,83 @@
 package sg.com.quantai.etl.services
 
-import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.stereotype.Service
 import sg.com.quantai.etl.data.NewsArticleBBC
-import sg.com.quantai.etl.repositories.NewsArticlesBBCRepository
+import sg.com.quantai.etl.exceptions.NewsArticleException
+import sg.com.quantai.etl.repositories.NewsArticleBBCRepository
+
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
-import org.springframework.web.reactive.function.client.WebClient
-import org.springframework.http.MediaType
+import java.time.Duration
 import java.time.LocalDate
 import java.time.YearMonth
+import org.slf4j.Logger
+import org.slf4j.LoggerFactory
+import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.beans.factory.annotation.Value
+import org.springframework.http.MediaType
+import org.springframework.stereotype.Service
+import org.springframework.web.reactive.function.client.WebClient
 import reactor.util.retry.Retry
-import sg.com.quantai.etl.exceptions.NewsArticlesException
-import java.time.Duration
-
 
 @Service
-class NewsArticlesBBCService(
-    @Autowired private val newsArticlesBBCRepository: NewsArticlesBBCRepository
+class NewsArticleBBCService(
+    @Autowired private val newsArticlesBBCRepository: NewsArticleBBCRepository
 ) {
 
-    private val newApiUrl = "https://datasets-server.huggingface.co/"
+    @Value("\${quantai.external.api.newsarticle.bbc}")
+    private lateinit var url: String
     private val batchSize = 100
+    private val logger: Logger = LoggerFactory.getLogger(NewsArticleBBCService::class.java)
 
     private fun bbcNewsWebClient(): WebClient {
-        return WebClient.builder().baseUrl(newApiUrl)
+        return WebClient.builder().baseUrl(url)
             .codecs { it.defaultCodecs().maxInMemorySize(16 * 1024 * 1024) }
             .build()
     }
 
-    fun fetchAndSaveNewsArticlesForAllMonths() {
-        println("Loading of BBC News Articles - START")
+    fun fetchAndSaveAllMonths() {
+        logger.info("Loading all BBC News Articles from HuggingFace API - START")
 
         val startDate = YearMonth.of(2017, 1)
         val endDate = YearMonth.of(2024, 9)
 
         var currentMonth = startDate
         while (currentMonth <= endDate) {
-            val configDate = currentMonth.toString()
-            println("Fetching data for: $configDate")
-            fetchAndSaveNewsArticlesForDate(configDate)
+            fetchAndSaveForDate(currentMonth)
             currentMonth = currentMonth.plusMonths(1)
         }
-        println("Loading of BBC News Articles - END")
+        logger.info("Loading all BBC News Articles from HuggingFace API - END")
     }
 
-    private fun fetchAndSaveNewsArticlesForDate(configDate: String) {
+    private fun fetchAndSaveForDate(month: java.time.YearMonth) {
+        logger.info("Fetching BBC News Articles from month $month - START")
+
+        val initialResponse = fetchRows(0, batchSize, month)
+        val rootNode: JsonNode = parseResponse(initialResponse)
+        val totalRows = rootNode.path("num_rows_total").asInt()
+
+        saveNewsArticleBBC(rootNode.path("rows"))
+
         try {
-            val initialResponse = fetchRows(0, batchSize, configDate)
-            val rootNode: JsonNode = parseResponse(initialResponse)
-            val totalRows = rootNode.path("num_rows_total").asInt()
-
-            saveArticlesFromRows(rootNode.path("rows"))
-
             for (offset in batchSize until totalRows step batchSize) {
-                val response = fetchRows(offset, batchSize, configDate)
+                val response = fetchRows(offset, batchSize, month)
                 val nextRootNode = parseResponse(response)
-                saveArticlesFromRows(nextRootNode.path("rows"))
+                saveNewsArticleBBC(nextRootNode.path("rows"))
             }
-
-            println("Successfully saved all articles for $configDate.")
-        } catch (ex: Exception) {
-            println("Error fetching data for $configDate: ${ex.message}")
+        } catch (e: NewsArticleException) {
+            logger.error("Error fetching BBC News Articles from month $month: ${e.message}")
         }
+
+        logger.info("Fetching BBC News Articles from month $month - END")
     }
 
-    private fun fetchRows(offset: Int, length: Int, configDate: String): String {
+    private fun fetchRows(offset: Int, length: Int, month: java.time.YearMonth): String {
         return try {
             bbcNewsWebClient()
                 .get()
                 .uri {
                     it.path("/rows")
                         .queryParam("dataset", "RealTimeData/bbc_news_alltime")
-                        .queryParam("config", configDate)
+                        .queryParam("config", month.toString())
                         .queryParam("split", "train")
                         .queryParam("offset", offset.toString())
                         .queryParam("length", length.toString())
@@ -88,9 +93,9 @@ class NewsArticlesBBCService(
                                     throwable.statusCode.is5xxServerError
                         }
                 )
-                .block() ?: throw NewsArticlesException("Failed to fetch rows for configDate: $configDate, offset: $offset, length: $length")
-        } catch (ex: Exception) {
-            throw NewsArticlesException("Failed with general error: ${ex.message}", null, ex.message)
+                .block() ?: throw NewsArticleException("Failed to fetch rows for configDate: $month, offset: $offset, length: $length")
+        } catch (e: Exception) {
+            throw NewsArticleException("Failed with general error: ${e.message}")
         }
     }
 
@@ -99,8 +104,8 @@ class NewsArticlesBBCService(
         return objectMapper.readTree(response)
     }
 
-    private fun saveArticlesFromRows(rows: JsonNode) {
-        rows.forEach { item ->
+    private fun saveNewsArticleBBC(json: JsonNode) {
+        json.forEach { item ->
             val row = item.path("row")
             val newsArticle = NewsArticleBBC(
                 title = row.path("title").asText(),
