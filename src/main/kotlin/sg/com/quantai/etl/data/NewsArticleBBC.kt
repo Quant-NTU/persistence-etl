@@ -13,13 +13,14 @@ data class NewsArticleBBC(
     // Columns
     val title: String,
     val publishedDate: LocalDate,
-    val authors: String?,
     val description: String?,
-    val section: String?,
     val content: String,
     val link: String,
     val topImage: String?,
     // Timestamps
     val createdDate: LocalDateTime = LocalDateTime.now(),
     val updatedDate: LocalDateTime = LocalDateTime.now(),
-)
+) {
+    @Transient var authors: String? = null;
+    @Transient var section: String? = null;
+}

@@ -105,33 +105,29 @@ class NewsArticleBBCService(
     }
 
     private fun saveNewsArticleBBC(json: JsonNode) {
-        json.forEach { item ->
-            val row = item.path("row")
-
+        json.forEach {
+            val row = it.path("row")
             val link = row.path("link").asText()
 
-            val existingArticle = newsArticlesBBCRepository.findByLink(link)
-
-            if (existingArticle == null) {
-                val authors = if (!row.path("authors").isNull) row.path("authors").asText() else null
-                val section = if (!row.path("section").isNull) row.path("section").asText() else null
-
+            if (!newsArticlesBBCRepository.existsByLink(link)) {
                 val newsArticle = NewsArticleBBC(
                     title = row.path("title").asText(),
                     publishedDate = LocalDate.parse(row.path("published_date").asText()),
-                    authors = authors,
                     description = row.path("description").asText(),
-                    section = section,
                     content = row.path("content").asText(),
                     link = row.path("link").asText(),
                     topImage = row.path("top_image").asText()
                 )
 
+                if (!row.path("authors").isNull)
+                    newsArticle.authors = row.path("authors").asText()
+                if (!row.path("section").isNull)
+                    newsArticle.section = row.path("section").asText()
+
                 newsArticlesBBCRepository.save(newsArticle)
             } else {
                 logger.info("Article with link: $link already exists, skipping insertion.")
             }
-
         }
     }
 }
