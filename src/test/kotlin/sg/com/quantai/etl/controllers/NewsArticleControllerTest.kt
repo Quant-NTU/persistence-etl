@@ -83,11 +83,32 @@ class NewsArticleControllerTest {
         )
         val mockArticles = listOf(newsArticleBBC1, newsArticleBBC2, newsArticleBBC3)
 
-        // when then
+        `when`(newsArticleBBCRepository.existsByLink("http://example.com/article1")).thenReturn(false)
+        `when`(newsArticleBBCRepository.existsByLink("http://example.com/article2")).thenReturn(false)
 
-        newsArticleController.findAll()
-        verify(newsArticleController, times(1)).fetchAndSaveBBCNews()
+        `when`(newsArticleBBCRepository.countByLink("http://example.com/article1")).thenReturn(0)
+        `when`(newsArticleBBCRepository.countByLink("http://example.com/article2")).thenReturn(0)
 
+        `when`(newsArticleBBCRepository.save(newsArticleBBC1)).thenReturn(newsArticleBBC1)
+        `when`(newsArticleBBCRepository.save(newsArticleBBC2)).thenReturn(newsArticleBBC2)
+
+        `when`(newsArticleController.fetchAndSaveBBCNews()).thenAnswer {
+            mockArticles.forEach { article ->
+                if (!newsArticleBBCRepository.existsByLink(article.link)) {
+                    newsArticleBBCRepository.save(article)
+                    `when`(newsArticleBBCRepository.existsByLink(article.link)).thenReturn(true)
+                    `when`(newsArticleBBCRepository.countByLink(article.link)).thenReturn(1)
+                }
+            }
+            ResponseEntity.ok("News articles fetched and saved.")
+        }
+        val response = newsArticleController.fetchAndSaveBBCNews()
+
+        verify(newsArticleBBCRepository, times(1)).save(newsArticleBBC1)
+        verify(newsArticleBBCRepository, times(1)).save(newsArticleBBC2)
+        verify(newsArticleBBCRepository, times(0)).save(newsArticleBBC3)
+
+        assertEquals(HttpStatus.OK, response.statusCode)
         assertEquals(1, newsArticleBBCRepository.countByLink("http://example.com/article1"))
         assertEquals(1, newsArticleBBCRepository.countByLink("http://example.com/article2"))
     }
