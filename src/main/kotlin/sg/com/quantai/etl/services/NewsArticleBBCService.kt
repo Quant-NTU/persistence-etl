@@ -116,7 +116,8 @@ class NewsArticleBBCService(
                     description = row.path("description").asText(),
                     content = row.path("content").asText(),
                     link = row.path("link").asText(),
-                    topImage = row.path("top_image").asText()
+                    topImage = row.path("top_image").asText(),
+                    transformed = false
                 )
 
                 if (!row.path("authors").isNull)
