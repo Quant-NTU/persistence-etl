@@ -5,7 +5,7 @@ This microservice also interacts with the persistence-middleware, which will acc
 
 BBC News acts as the only source of news data at the time being, for this News Articles pipeline, hence this documentation is written mainly in the context of BBC news.
 
-This microservice interacts with the external Hugging Face API to fetch, save, transform, and manage BBC news articles in MongoDB.
+This microservice interacts with the external Hugging Face API to fetch, save, transform, and manage BBC news articles in MongoDB. A scheduler has been implemented to automate this entire pipeline, ensuring that the database is updated periodically with the latest historical news data available. 
 
 ## Fetching and Saving News Articles
 ### Controller Class: `NewsArticleController`
@@ -51,9 +51,9 @@ Response: 200 OK
 - **Endpoint**: `POST /news_articles/bbc/transform`
 - **Functionality**: Transforms and saves BBC news articles from the raw collection (`news_articles_bbc`) to the transformed collection (`news_articles`).
 - **Description**:
+    - Filters for raw BBC news articles that have yet to be transformed, by retrieving them with `newsArticlesBBCRepository.findAllByTransformedFalse()`. This ensures that articles that have already been transformed do not undergo the transformation pipeline again and are not saved again into the transformed collection, eliminating duplication issues. 
     - Filters BBC news articles that have non-blank titles, descriptions, and content.
     - Transforms the data and stores it in the `news_articles` collection for further processing.
-    - Old transformed articles are deleted, and new ones are created.
 - **Service:** It calls the `transformAndSave` method in `NewsArticleService`.
 
 **Example Usage**:
@@ -130,6 +130,8 @@ data class NewsArticleBBC(
     val content: String,
     val link: String,
     val topImage: String?,
+    var transformed: Boolean = false,
+
     val createdDate: LocalDateTime = LocalDateTime.now(),
     val updatedDate: LocalDateTime = LocalDateTime.now(),
 ) {
@@ -154,7 +156,7 @@ The `NewsArticleBBCService` handles the logic for fetching raw BBC news articles
 
 - **`fetchAndSaveForDate`**: A helper method that fetches and saves data for a specific month.
 
-- **`saveNewsArticleBBC`**: This method saves individual news articles into the MongoDB collection, skipping articles that already exist by their link.
+- **`saveNewsArticleBBC`**: This method saves individual news articles into the MongoDB collection, skipping articles that already exist by their link. The service also marks newly fetched articles with `transformed = false` to indicate that they are untransformed rows, ready to be fed into the transformation pipeline later.
 
 
 
@@ -164,8 +166,16 @@ The `NewsArticleService` is responsible for transforming raw news articles into 
 
 #### Key Methods:
 
-- **`transformAndSave`**: This method transforms raw news articles by filtering articles that have all the necessary fields and saving the transformed articles into the MongoDB collection.
+- **`transformAndSave`**: This method first retrieves the raw articles that are yet to be transformed. It then transforms raw news articles by filtering articles that have all the necessary fields and saving the transformed articles into the MongoDB collection.
 
+### 3. `NewsArticleSchedulerService`
+
+This service is responsible for scheduling periodic fetching and transformation of BBC news articles. It automates the process of calling the `NewsArticleBBCService` to fetch new raw articles and `NewsArticleService` to transform them.
+
+- **Cron Schedule**: The service runs every month on the 15th at 2 AM.
+- **Methods**:
+  - `scheduleFetchAndTransformNews`: This method first triggers the fetch operation by calling `fetchAndSaveAllMonths` and then calls `transformAndSave` to process and store the transformed articles.
+- **Logging**: The service logs the start and end of both the fetch and transformation processes for better traceability.
 ---
 
 ## Exception Handling
@@ -194,12 +204,14 @@ interface NewsArticleRepository : MongoRepository<NewsArticle, String> {}
 
 ### NewsArticleBBCRepository
 
-Interface for accessing the `news_articles_bbc` collection. Includes methods to check for existing articles by their `link` field.
+Interface for accessing the `news_articles_bbc` collection. 
+Includes methods to check for existing articles by their `link` field and to check for untransformed raw articles by their `transformed` field, to feed them into the transformation pipeline.
 
 ```kotlin
 interface NewsArticleBBCRepository : MongoRepository<NewsArticleBBC, String> {
     fun existsByLink(link: String): Boolean
     fun countByLink(link: String): Long
+    fun findAllByTransformedFalse(): List<NewsArticleBBC>
 }
 ```
 ---
@@ -207,3 +219,4 @@ interface NewsArticleBBCRepository : MongoRepository<NewsArticleBBC, String> {
 ## Conclusion
 
 This service is an integral part of the larger system for processing BBC news articles, providing a pipeline from raw data ingestion, transformation, and storage into the system for further use.
+A scheduler service is also implemented to automate this entire pipeline as well, ensuring that the database is periodically updated with the latest historical news data available. 
