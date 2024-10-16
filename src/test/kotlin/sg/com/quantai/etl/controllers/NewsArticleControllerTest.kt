@@ -30,6 +30,11 @@ import org.springframework.http.ResponseEntity
 import org.springframework.test.context.junit.jupiter.SpringExtension
 
 import org.junit.jupiter.api.AfterEach
+import org.mockito.ArgumentMatchers.anyList
+import org.mockito.ArgumentMatchers.argThat
+import org.mockito.Mockito
+import sg.com.quantai.etl.services.NewsArticleSchedulerService
+
 
 
 @ExtendWith(SpringExtension::class)
@@ -38,6 +43,7 @@ class NewsArticleControllerTest {
     @Mock private lateinit var newsArticleBBCService: NewsArticleBBCService
     @Mock private lateinit var newsArticleRepository: NewsArticleRepository
     @Mock private lateinit var newsArticleBBCRepository: NewsArticleBBCRepository
+    @InjectMocks private lateinit var newsArticleSchedulerService: NewsArticleSchedulerService
     @InjectMocks private lateinit var newsArticleController: NewsArticleController
 
     @AfterEach
@@ -168,5 +174,59 @@ class NewsArticleControllerTest {
         verify(newsArticleRepository, times(1)).findAll()
 
         assertEquals(HttpStatus.NO_CONTENT, response.statusCode)
+    }
+
+    @Test
+    fun `should transform only untransformed raw articles`() {
+        val untransformedRawArticle = NewsArticleBBC(
+            title = "Untransformed Title",
+            publishedDate = LocalDate.parse("2023-10-01"),
+            description = "Untransformed Description",
+            content = "Untransformed Content",
+            link = "http://example.com/untransformed",
+            topImage = "image1",
+            transformed = false
+        )
+        val transformedRawArticle = NewsArticleBBC(
+            title = "Transformed Title",
+            publishedDate = LocalDate.parse("2023-10-02"),
+            description = "Transformed Description",
+            content = "Transformed Content",
+            link = "http://example.com/transformed",
+            topImage = "image2",
+            transformed = true
+        )
+
+        `when`(newsArticleBBCRepository.findAllByTransformedFalse()).thenReturn(listOf(untransformedRawArticle))
+
+        val newsArticleService = NewsArticleService(newsArticleBBCRepository, newsArticleRepository)
+
+        newsArticleService.transformAndSave()
+
+        verify(newsArticleBBCRepository, times(1)).findAllByTransformedFalse()
+
+        verify(newsArticleRepository, times(1)).saveAll(anyList())
+
+        verify(newsArticleRepository, times(0)).saveAll(
+            listOf(
+                NewsArticle(
+                    title = transformedRawArticle.title,
+                    publishedDate = transformedRawArticle.publishedDate,
+                    description = transformedRawArticle.description ?: "",
+                    content = transformedRawArticle.content
+                )
+            )
+        )
+    }
+
+    @Test
+    fun `should run scheduled fetch and transform news`() {
+        doNothing().`when`(newsArticleBBCService).fetchAndSaveAllMonths()
+        doNothing().`when`(newsArticleService).transformAndSave()
+
+        newsArticleSchedulerService.scheduleFetchAndTransformNews()
+
+        verify(newsArticleBBCService, times(1)).fetchAndSaveAllMonths()
+        verify(newsArticleService, times(1)).transformAndSave()
     }
 }

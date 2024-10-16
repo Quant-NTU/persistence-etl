@@ -17,6 +17,7 @@ data class NewsArticleBBC(
     val content: String,
     val link: String,
     val topImage: String?,
+    var transformed: Boolean = false,
     // Timestamps
     val createdDate: LocalDateTime = LocalDateTime.now(),
     val updatedDate: LocalDateTime = LocalDateTime.now(),

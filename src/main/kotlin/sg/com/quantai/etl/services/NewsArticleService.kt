@@ -20,9 +20,9 @@ class NewsArticleService(
 
     fun transformAndSave() {
         logger.info("Transforming all BBC News Articles - START")
-        val bbcArticles: List<NewsArticleBBC> = newsArticlesBBCRepository.findAll()
+        val untransformedArticles: List<NewsArticleBBC> = newsArticlesBBCRepository.findAllByTransformedFalse()
 
-        val transformedArticles: List<NewsArticle> = bbcArticles.stream()
+        val transformedArticles: List<NewsArticle> = untransformedArticles.stream()
             .filter {
                 it.title.isNotBlank() && it.description?.isNotBlank() == true && it.content.isNotBlank()
             }
@@ -36,6 +36,11 @@ class NewsArticleService(
             }.collect(Collectors.toList())
 
         newsArticleRepository.saveAll(transformedArticles)
+
+        untransformedArticles.forEach {
+            it.transformed = true
+            newsArticlesBBCRepository.save(it)
+        }
 
         logger.info("Transformation completed. ${transformedArticles.size} transformed articles loaded into database.")
         logger.info("Transforming all BBC News Articles - END")
