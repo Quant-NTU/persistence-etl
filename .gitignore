@@ -5,8 +5,8 @@
 bin/*
 build/*
 gradle/*
-.env
 
 # files
 gradlew
 gradlew.bat
+.env
