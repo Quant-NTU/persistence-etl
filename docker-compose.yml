@@ -17,9 +17,16 @@ services:
     image: timescale/timescaledb:latest-pg16
     environment:
       - POSTGRES_PASSWORD=zxcasdqwe123
+      - POSTGRES_DB=quant-ai
     ports: [ 10003:5432 ]
-    volumes: [ ../data/timescale-data:/home/postgres/pgdata/data/ ]
+    volumes: [ ../data/timescale-data:/var/lib/postgresql/data ]
+    # volumes: [ ../data/timescale-data:/home/postgres/pgdata/data/ ]
     networks: [ quant-ai-timescale-db ]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   quant-ai-persistence-etl:
     container_name: quant-ai-persistence-etl
@@ -28,7 +35,8 @@ services:
       quant-ai-mongo-db:
         condition: service_healthy
       quant-ai-timescale-db:
-        condition: service_started
+        condition: service_healthy
+        # condition: service_started
     build:
       context: .
       target: local
