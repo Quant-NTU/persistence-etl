@@ -7,11 +7,29 @@ import org.springframework.context.annotation.Bean
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.stereotype.Component
 
+/**
+ * Initializes required tables in TimescaleDB on application startup.
+ *
+ * This component defines the database schema for tables in TimescaleDB, 
+ * specifically `raw_crypto_data` and `transformed_crypto_data`, 
+ * which store raw and aggregated cryptocurrency data respectively.
+ *
+ * @property jdbcTemplate JdbcTemplate instance for executing SQL statements.
+ */
 @Component
 class TimescaleDBTableInitializer(val jdbcTemplate: JdbcTemplate) {
 
     private val logger: Logger = LoggerFactory.getLogger(TimescaleDBTableInitializer::class.java)
 
+    /**
+     * Returns a CommandLineRunner bean to initialize tables on startup.
+     *
+     * The `runDatabaseInitializer` method is annotated with `@Bean`, ensuring it runs at startup. 
+     * This method creates the `raw_crypto_data` and `transformed_crypto_data` tables if they do not exist, 
+     * logging the initialization process.
+     *
+     * @return CommandLineRunner A Spring Boot command-line runner that executes the database initialization process.
+     */
     @Bean(name = ["timescaleDBInitializer"])
     fun runDatabaseInitializer(): CommandLineRunner {
         return CommandLineRunner {
@@ -19,8 +37,8 @@ class TimescaleDBTableInitializer(val jdbcTemplate: JdbcTemplate) {
             // Start of table initialization
             logger.info("Initializing all required tables for TimescaleDB...")
 
+            // Initialize `raw_crypto_data` table
             logger.info("Initializing 'raw_crypto_data' table...")
-            // Create Raw Crypto Data Table
             jdbcTemplate.execute("""
                 CREATE TABLE IF NOT EXISTS raw_crypto_data (
                     id SERIAL PRIMARY KEY,
@@ -32,8 +50,8 @@ class TimescaleDBTableInitializer(val jdbcTemplate: JdbcTemplate) {
             """)
             logger.info("Table 'raw_crypto_data' initialized.")
 
+            // Initialize `transformed_crypto_data` table
             logger.info("Initializing 'transformed_crypto_data' table...")
-            // Create Transformed Crypto Data Table
             jdbcTemplate.execute("""
                 CREATE TABLE IF NOT EXISTS transformed_crypto_data (
                     id SERIAL PRIMARY KEY,
