@@ -9,3 +9,4 @@ gradle/*
 # files
 gradlew
 gradlew.bat
+.env
