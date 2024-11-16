@@ -27,4 +27,15 @@ class CryptoController(private val cryptoService: CryptoService) {
     ): JsonNode {
         return cryptoService.fetchHistoricalData(symbol, currency, limit)
     }
+
+    // Endpoint to fetch and store historical crypto data into the database
+    @GetMapping("/crypto/historical/store")
+    fun fetchAndStoreHistoricalData(
+        @RequestParam symbol: String,
+        @RequestParam currency: String,
+        @RequestParam limit: Int
+    ): String {
+        cryptoService.fetchAndStoreHistoricalData(symbol, currency, limit)
+        return "Historical data for $symbol-$currency successfully stored!"
+    }
 }
