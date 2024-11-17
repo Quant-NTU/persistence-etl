@@ -34,10 +34,8 @@ class TimescaleDBTableInitializer(val jdbcTemplate: JdbcTemplate) {
     fun runDatabaseInitializer(): CommandLineRunner {
         return CommandLineRunner {
 
-            // Start of table initialization
             logger.info("Initializing all required tables for TimescaleDB...")
 
-            // Initialize `raw_crypto_data` table
             logger.info("Initializing 'raw_crypto_data' table...")
             jdbcTemplate.execute("""
                 CREATE TABLE IF NOT EXISTS raw_crypto_data (
@@ -56,7 +54,6 @@ class TimescaleDBTableInitializer(val jdbcTemplate: JdbcTemplate) {
             """)
             logger.info("Table 'raw_crypto_data' initialized.")
 
-            // Initialize `transformed_crypto_data` table
             logger.info("Initializing 'transformed_crypto_data' table...")
             jdbcTemplate.execute("""
                 CREATE TABLE IF NOT EXISTS transformed_crypto_data (
@@ -75,9 +72,7 @@ class TimescaleDBTableInitializer(val jdbcTemplate: JdbcTemplate) {
             """)
             logger.info("Table 'transformed_crypto_data' initialized.")
 
-            // End of table initialization
             logger.info("All tables have been successfully initialized.")
-        
         }
     }
 }
