@@ -1,41 +1,47 @@
 package sg.com.quantai.etl.controllers
 
-import com.fasterxml.jackson.databind.JsonNode
-import org.springframework.web.bind.annotation.GetMapping
-import org.springframework.web.bind.annotation.RequestParam
-import org.springframework.web.bind.annotation.RestController
+import org.springframework.http.ResponseEntity
+import org.springframework.web.bind.annotation.*
 import sg.com.quantai.etl.services.CryptoService
 
 @RestController
+@RequestMapping("/crypto")
 class CryptoController(private val cryptoService: CryptoService) {
 
-    // Endpoint to fetch current crypto price
-    @GetMapping("/crypto/current/price")
+    /**
+     * Fetch the current price of a cryptocurrency
+     * Example Usage:
+     * GET /crypto/current/price?symbol=BTC&currency=USD
+     */
+    @GetMapping("/price/current")
     fun getCryptoPrice(
         @RequestParam symbol: String,
         @RequestParam currency: String
-    ): JsonNode {
-        return cryptoService.fetchCryptoPrice(symbol, currency)
+    ): ResponseEntity<Any> {
+        val response = cryptoService.fetchCryptoPrice(symbol, currency)
+        return if (response != null) {
+            ResponseEntity.ok(response)
+        } else {
+            ResponseEntity.badRequest().body("Unable to fetch current price for $symbol-$currency")
+        }
     }
 
-    // Endpoint to fetch historical crypto data
-    @GetMapping("/crypto/historical/price")
-    fun getHistoricalData(
-        @RequestParam symbol: String,
-        @RequestParam currency: String,
-        @RequestParam limit: Int
-    ): JsonNode {
-        return cryptoService.fetchHistoricalData(symbol, currency, limit)
-    }
-
-    // Endpoint to fetch and store historical crypto data into the database
-    @GetMapping("/crypto/historical/store")
+    /**
+     * Fetch and store historical cryptocurrency data
+     * Example Usage:
+     * POST /crypto/historical/store?symbol=BTC&currency=USD&limit=10
+     */
+    @PostMapping("/historical/store")
     fun fetchAndStoreHistoricalData(
         @RequestParam symbol: String,
         @RequestParam currency: String,
         @RequestParam limit: Int
-    ): String {
-        cryptoService.fetchAndStoreHistoricalData(symbol, currency, limit)
-        return "Historical data for $symbol-$currency successfully stored!"
+    ): ResponseEntity<Any> {
+        return try {
+            cryptoService.fetchAndStoreHistoricalData(symbol, currency, limit)
+            ResponseEntity.ok("Historical data for $symbol-$currency successfully stored!")
+        } catch (e: Exception) {
+            ResponseEntity.status(500).body("Error storing historical data: ${e.message}")
+        }
     }
 }
