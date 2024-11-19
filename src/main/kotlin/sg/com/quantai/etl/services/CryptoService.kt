@@ -53,7 +53,7 @@ class CryptoService(
         }
     }
 
-    fun fetchHistoricalData(symbol: String, currency: String, limit: Int): JsonNode? {
+    private fun fetchHistoricalData(symbol: String, currency: String, limit: Int): JsonNode? {
         try {
             logger.info("Fetching historical data for $symbol in $currency")
 
@@ -92,7 +92,6 @@ class CryptoService(
 
         logger.info("Fetched ${historicalData.size()} records for $symbol-$currency")
 
-        // Insert data into the database
         historicalData.forEach { node ->
             try {
                 val timestamp = Timestamp.from(Instant.ofEpochSecond(node["time"].asLong()))

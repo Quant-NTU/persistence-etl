@@ -1,5 +1,6 @@
 package sg.com.quantai.etl.controllers
 
+import com.fasterxml.jackson.databind.JsonNode
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
 import sg.com.quantai.etl.services.CryptoService
@@ -17,12 +18,12 @@ class CryptoController(private val cryptoService: CryptoService) {
     fun getCryptoPrice(
         @RequestParam symbol: String,
         @RequestParam currency: String
-    ): ResponseEntity<Any> {
+    ): ResponseEntity<JsonNode> {
         val response = cryptoService.fetchCryptoPrice(symbol, currency)
         return if (response != null) {
             ResponseEntity.ok(response)
         } else {
-            ResponseEntity.badRequest().body("Unable to fetch current price for $symbol-$currency")
+            ResponseEntity.status(500).body(null)
         }
     }
 
@@ -36,7 +37,7 @@ class CryptoController(private val cryptoService: CryptoService) {
         @RequestParam symbol: String,
         @RequestParam currency: String,
         @RequestParam limit: Int
-    ): ResponseEntity<Any> {
+    ): ResponseEntity<String> {
         return try {
             cryptoService.fetchAndStoreHistoricalData(symbol, currency, limit)
             ResponseEntity.ok("Historical data for $symbol-$currency successfully stored!")
