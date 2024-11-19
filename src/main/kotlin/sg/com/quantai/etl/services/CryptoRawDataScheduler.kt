@@ -13,7 +13,7 @@ class CryptoRawDataScheduler(private val cryptoService: CryptoService) {
     /**
      * Schedule the raw data fetching task to run daily at 1:00 AM.
      */
-    @Scheduled(cron = "0 30 0 * * ?") // 12:30 AM UTC daily
+    @Scheduled(cron = "0 5 0 * * ?") // 12:05 AM UTC daily
     fun scheduleRawDataFetch() {
         logger.info("Scheduled raw data fetch started...")
 
