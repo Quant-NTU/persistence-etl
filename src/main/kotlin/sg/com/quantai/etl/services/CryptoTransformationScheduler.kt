@@ -13,7 +13,7 @@ class CryptoTransformationScheduler(private val transformationService: CryptoTra
     /**
      * Schedule the transformation task to run daily at midnight.
      */
-    @Scheduled(cron = "0 0 0 * * ?")
+    @Scheduled(cron = "0 30 0 * * ?") // 12:30 AM UTC daily
     fun scheduleTransformation() {
         logger.info("Scheduled transformation task started...")
         transformationService.transformData()
