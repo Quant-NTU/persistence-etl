@@ -10,9 +10,7 @@ import org.springframework.stereotype.Component
 /**
  * Initializes required tables in TimescaleDB on application startup.
  *
- * This component defines the database schema for tables in TimescaleDB, 
- * specifically `raw_crypto_data` and `transformed_crypto_data`, 
- * which store raw and aggregated cryptocurrency data respectively.
+ * This component defines the database schema for tables in TimescaleDB
  *
  * @property jdbcTemplate JdbcTemplate instance for executing SQL statements.
  */
@@ -24,8 +22,8 @@ class TimescaleDBTableInitializer(val jdbcTemplate: JdbcTemplate) {
     /**
      * Returns a CommandLineRunner bean to initialize tables on startup.
      *
-     * The `runDatabaseInitializer` method is annotated with `@Bean`, ensuring it runs at startup. 
-     * This method creates the `raw_crypto_data` and `transformed_crypto_data` tables if they do not exist, 
+     * The `runDatabaseInitializer` method is annotated with `@Bean`, ensuring it runs at startup.
+     * This method creates the `raw_crypto_data` and `transformed_crypto_data` tables if they do not exist,
      * logging the initialization process.
      *
      * @return CommandLineRunner A Spring Boot command-line runner that executes the database initialization process.
@@ -66,6 +64,8 @@ class TimescaleDBTableInitializer(val jdbcTemplate: JdbcTemplate) {
                     close DECIMAL NOT NULL,
                     volume_from DECIMAL NOT NULL,
                     volume_to DECIMAL NOT NULL,
+                    avg_price DECIMAL,
+                    price_change DECIMAL,
                     timestamp TIMESTAMPTZ NOT NULL,
                     "source" VARCHAR(50) NOT NULL
                 );
