@@ -4,10 +4,11 @@ import com.fasterxml.jackson.databind.JsonNode
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
 import sg.com.quantai.etl.services.CryptoService
+import sg.com.quantai.etl.services.CryptoTransformationService
 
 @RestController
 @RequestMapping("/crypto")
-class CryptoController(private val cryptoService: CryptoService) {
+class CryptoController(private val cryptoService: CryptoService, private val cryptoTransformationService: CryptoTransformationService) {
 
     /**
      * Fetch the current price of a cryptocurrency
@@ -45,4 +46,11 @@ class CryptoController(private val cryptoService: CryptoService) {
             ResponseEntity.status(500).body("Error storing historical data: ${e.message}")
         }
     }
+
+    @PostMapping("/transform")
+    fun triggerTransformation(): ResponseEntity<String> {
+        cryptoTransformationService.transformData()
+        return ResponseEntity.ok("Transformation triggered!")
+    }
+
 }
