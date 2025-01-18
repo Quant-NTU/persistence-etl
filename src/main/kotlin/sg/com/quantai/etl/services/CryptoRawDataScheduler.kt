@@ -11,27 +11,17 @@ class CryptoRawDataScheduler(private val cryptoService: CryptoService) {
     private val logger: Logger = LoggerFactory.getLogger(CryptoRawDataScheduler::class.java)
 
     /**
-     * Schedule the raw data fetching task to run daily at 1:00 AM.
+     * Schedule the raw data fetching task for top symbols to run daily at 12:05 AM UTC.
      */
     @Scheduled(cron = "0 5 0 * * ?") // 12:05 AM UTC daily
-    fun scheduleRawDataFetch() {
-        logger.info("Scheduled raw data fetch started...")
+    fun scheduleTopSymbolsDataFetch() {
+        logger.info("Scheduled data fetch for top symbols started...")
 
         try {
-            // Add the symbols and currencies to fetch
-            val symbols = listOf("BTC", "ETH")
-            val currencies = listOf("USD", "EUR")
-
-            symbols.forEach { symbol ->
-                currencies.forEach { currency ->
-                    logger.info("Fetching raw data for $symbol in $currency")
-                    cryptoService.fetchAndStoreHistoricalData(symbol, currency, 1)
-                }
-            }
-
-            logger.info("Scheduled raw data fetch completed.")
+            cryptoService.storeHistoricalDataForTopSymbols()
+            logger.info("Scheduled data fetch for top symbols completed.")
         } catch (e: Exception) {
-            logger.error("Error during scheduled raw data fetch: ${e.message}")
+            logger.error("Error during scheduled data fetch for top symbols: ${e.message}")
         }
     }
 }

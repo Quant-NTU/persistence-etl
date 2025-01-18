@@ -26,30 +26,65 @@ class CryptoService(
         webClientBuilder.baseUrl(cryptoCompareBaseUrl).build()
     }
 
-    fun fetchCryptoPrice(symbol: String, currency: String): JsonNode? {
+    fun getTopCryptoSymbols(): List<String> {
         try {
-            logger.info("Fetching current price for $symbol in $currency")
+            logger.info("Fetching top 10 crypto symbols by volume")
+            val apiUrl = "$cryptoCompareBaseUrl/data/top/totalvolfull?limit=10&tsym=USD&api_key=$apiKey"
 
             val response = webClient
                 .get()
-                .uri { uriBuilder ->
-                    uriBuilder
-                        .path("/data/price")
-                        .queryParam("fsym", symbol)
-                        .queryParam("tsyms", currency)
-                        .queryParam("api_key", apiKey)
-                        .build()
-                }
+                .uri(apiUrl)
                 .retrieve()
                 .bodyToMono(String::class.java)
                 .block()
 
-            logger.info("API Response for current price: $response")
+            val responseData = objectMapper.readTree(response).path("Data")
 
-            return objectMapper.readTree(response)
+            return responseData.map {
+                it.path("CoinInfo").path("Name").asText()
+            }
         } catch (e: Exception) {
-            logger.error("Error fetching current price for $symbol-$currency: ${e.message}")
-            return null
+            logger.error("Error fetching top crypto symbols: ${e.message}")
+            return emptyList()
+        }
+    }
+
+    fun storeHistoricalDataForTopSymbols() {
+        val topSymbols = getTopCryptoSymbols()
+
+        topSymbols.forEach { symbol ->
+            try {
+                val historicalData = fetchHistoricalData(symbol, "USD", 10)
+                if (historicalData != null && historicalData.isArray) {
+                    historicalData.forEach { node ->
+                        val timestamp = Timestamp.from(Instant.ofEpochSecond(node["time"].asLong()))
+                        if (!checkIfDataExists(symbol, timestamp)) {
+                            insertHistoricalData(node, symbol, "USD")
+                        } else {
+                            logger.info("Data for $symbol at $timestamp already exists. Skipping storage.")
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                logger.error("Error storing historical data for $symbol: ${e.message}")
+            }
+        }
+    }
+
+    fun fetchAndStoreHistoricalData(symbol: String, currency: String, limit: Int) {
+        val historicalData = fetchHistoricalData(symbol, currency, limit)
+        if (historicalData == null || !historicalData.isArray || historicalData.isEmpty) {
+            logger.warn("No historical data found for $symbol in $currency")
+            return
+        }
+
+        historicalData.forEach { node ->
+            val timestamp = Timestamp.from(Instant.ofEpochSecond(node["time"].asLong()))
+            if (!checkIfDataExists(symbol, timestamp)) {
+                insertHistoricalData(node, symbol, currency)
+            } else {
+                logger.info("Data for $symbol at $timestamp already exists. Skipping storage.")
+            }
         }
     }
 
@@ -81,40 +116,36 @@ class CryptoService(
         }
     }
 
-    fun fetchAndStoreHistoricalData(symbol: String, currency: String, limit: Int) {
-        val source = "CryptoCompare API"
-        val historicalData = fetchHistoricalData(symbol, currency, limit)
+    private fun insertHistoricalData(node: JsonNode, symbol: String, currency: String) {
+        try {
+            val timestamp = Timestamp.from(Instant.ofEpochSecond(node["time"].asLong()))
+            val open = node["open"]?.asDouble() ?: throw IllegalArgumentException("Missing 'open'")
+            val high = node["high"]?.asDouble() ?: throw IllegalArgumentException("Missing 'high'")
+            val low = node["low"]?.asDouble() ?: throw IllegalArgumentException("Missing 'low'")
+            val close = node["close"]?.asDouble() ?: throw IllegalArgumentException("Missing 'close'")
+            val volumeFrom = node["volumefrom"]?.asDouble() ?: throw IllegalArgumentException("Missing 'volumefrom'")
+            val volumeTo = node["volumeto"]?.asDouble() ?: throw IllegalArgumentException("Missing 'volumeto'")
 
-        if (historicalData == null || !historicalData.isArray || historicalData.isEmpty) {
-            logger.warn("No historical data found for $symbol in $currency")
-            return
+            logger.info(
+                "Inserting: symbol=$symbol, currency=$currency, open=$open, high=$high, low=$low, close=$close, " +
+                        "volume_from=$volumeFrom, volume_to=$volumeTo, timestamp=$timestamp"
+            )
+
+            val sql = """
+                INSERT INTO raw_crypto_compare_crypto_data (symbol, currency, open, high, low, close, volume_from, volume_to, timestamp)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """
+            jdbcTemplate.update(sql, symbol, currency, open, high, low, close, volumeFrom, volumeTo, timestamp)
+        } catch (e: Exception) {
+            logger.error("Failed to insert historical data for $symbol-$currency: ${e.message}")
         }
+    }
 
-        logger.info("Fetched ${historicalData.size()} records for $symbol-$currency")
-
-        historicalData.forEach { node ->
-            try {
-                val timestamp = Timestamp.from(Instant.ofEpochSecond(node["time"].asLong()))
-                val open = node["open"]?.asDouble() ?: throw IllegalArgumentException("Missing 'open'")
-                val high = node["high"]?.asDouble() ?: throw IllegalArgumentException("Missing 'high'")
-                val low = node["low"]?.asDouble() ?: throw IllegalArgumentException("Missing 'low'")
-                val close = node["close"]?.asDouble() ?: throw IllegalArgumentException("Missing 'close'")
-                val volumeFrom = node["volumefrom"]?.asDouble() ?: throw IllegalArgumentException("Missing 'volumefrom'")
-                val volumeTo = node["volumeto"]?.asDouble() ?: throw IllegalArgumentException("Missing 'volumeto'")
-
-                logger.info(
-                    "Inserting: symbol=$symbol, currency=$currency, open=$open, high=$high, low=$low, close=$close, " +
-                            "volume_from=$volumeFrom, volume_to=$volumeTo, timestamp=$timestamp, source=$source"
-                )
-
-                val sql = """
-                    INSERT INTO raw_crypto_data (symbol, currency, open, high, low, close, volume_from, volume_to, timestamp, "source")
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """
-                jdbcTemplate.update(sql, symbol, currency, open, high, low, close, volumeFrom, volumeTo, timestamp, source)
-            } catch (e: Exception) {
-                logger.error("Failed to insert historical data for $symbol-$currency: ${e.message}")
-            }
-        }
+    private fun checkIfDataExists(symbol: String, timestamp: Timestamp): Boolean {
+        val sql = """
+            SELECT COUNT(*) FROM raw_crypto_compare_crypto_data WHERE symbol = ? AND timestamp = ?
+        """
+        val count = jdbcTemplate.queryForObject(sql, Int::class.java, symbol, timestamp)
+        return count != null && count > 0
     }
 }
