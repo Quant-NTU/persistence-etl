@@ -5,6 +5,7 @@ import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import java.io.File
+import java.net.URI
 import java.net.URL
 import java.nio.file.Files
 import java.util.zip.ZipFile
@@ -43,7 +44,8 @@ class OneDriveDataService {
         val zipFile = File(zipFilePath)
 
         try {
-            FileUtils.copyURLToFile(URL(oneDriveUrl), zipFile)
+            val url: URL = URI(oneDriveUrl).toURL()
+            FileUtils.copyURLToFile(url, zipFile)
             logger.info("ZIP file downloaded successfully: $zipFilePath")
 
             return extractZip(zipFile)
