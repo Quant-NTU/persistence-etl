@@ -8,7 +8,10 @@ import sg.com.quantai.etl.services.CryptoTransformationService
 
 @RestController
 @RequestMapping("/crypto")
-class CryptoController(private val cryptoService: CryptoService, private val cryptoTransformationService: CryptoTransformationService) {
+class CryptoController(
+    private val cryptoService: CryptoService,
+    private val cryptoTransformationService: CryptoTransformationService
+) {
 
     /**
      * Fetch and store historical cryptocurrency data (manual trigger)
