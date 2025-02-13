@@ -39,10 +39,19 @@ dependencies {
     testImplementation 'com.h2database:h2'
 }
 
-tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile) {
-    kotlinOptions {
-        freeCompilerArgs = ['-Xjsr305=strict']
-        jvmTarget = '21'
+// IMPORTS FOR NEW COMPILER OPTIONS API
+// ---------------------------------------
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+
+// CHANGED: Use the newer "compilerOptions" API instead of "kotlinOptions"
+tasks.withType(KotlinCompile).configureEach {
+    compilerOptions {
+        // Equivalent to "kotlinOptions.freeCompilerArgs"
+        freeCompilerArgs.add("-Xjsr305=strict")
+
+        // Equivalent to "kotlinOptions.jvmTarget"
+        jvmTarget.set(JvmTarget.JVM_21)
     }
 }
 
