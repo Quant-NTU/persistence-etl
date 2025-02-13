@@ -6,6 +6,7 @@ WORKDIR /src
 
 FROM dev AS gradle
 COPY --chown=gradle:gradle . /src
+RUN gradle clean
 RUN gradle build -x test
 
 FROM openjdk:${OPENJDK_VERSION} AS jdk

@@ -5,11 +5,11 @@ usage() {
     echo "-h, --help                    Display this help message"
     echo "-b, --build                   Compile and Build the current gradle project"
     echo "-c, --continuous              Compile, Build and Serve using local configs in a continuous way"
-    echo "-d, --stop                    Stop the continous built process"
+    echo "-d, --stop                    Stop the continuous built process"
     echo "-t, --test                    Compile, Build and Test the current gradle project"
     echo "-l, --local                   Compile, Build and Serve using local configs"
     echo "-s, --stag,  --staging        Compile, Build and Serve using stating configs"
-    echo "-p, --prod,  --production     Compile, Build and Serve using prodution configs"
+    echo "-p, --prod,  --production     Compile, Build and Serve using production configs"
 }
 
 handle_options() {
