@@ -54,6 +54,49 @@ class TimescaleDBTableInitializer(val jdbcTemplate: JdbcTemplate) {
             """)
             logger.info("Table 'transformed_crypto_data' initialized.")
 
+            // New tables for stock data
+            logger.info("Initializing 'raw_stock_data' table...")
+            jdbcTemplate.execute("""
+                CREATE TABLE IF NOT EXISTS raw_stock_data (
+                    id SERIAL PRIMARY KEY,
+                    ticker VARCHAR(20) NOT NULL,
+                    date TIMESTAMPTZ NOT NULL,
+                    open DECIMAL,
+                    high DECIMAL,
+                    low DECIMAL,
+                    close DECIMAL,
+                    volume DECIMAL,
+                    closeadj DECIMAL,
+                    source_file VARCHAR(255),
+                    created_at TIMESTAMPTZ DEFAULT NOW()
+                );
+                CREATE INDEX IF NOT EXISTS idx_raw_stock_ticker_date ON raw_stock_data (ticker, date);
+            """)
+            logger.info("Table 'raw_stock_data' initialized.")
+
+            logger.info("Initializing 'transformed_stock_data' table...")
+            jdbcTemplate.execute("""
+                CREATE TABLE IF NOT EXISTS transformed_stock_data (
+                    id SERIAL PRIMARY KEY,
+                    ticker VARCHAR(20) NOT NULL,
+                    date TIMESTAMPTZ NOT NULL,
+                    open DECIMAL NOT NULL,
+                    high DECIMAL NOT NULL,
+                    low DECIMAL NOT NULL,
+                    close DECIMAL NOT NULL,
+                    volume DECIMAL NOT NULL,
+                    closeadj DECIMAL,
+                    price_change DECIMAL,
+                    volatility DECIMAL,
+                    vwap DECIMAL,
+                    sma_7 DECIMAL,
+                    created_at TIMESTAMPTZ DEFAULT NOW(),
+                    CONSTRAINT uk_transformed_stock_ticker_date UNIQUE (ticker, date)
+                );
+                CREATE INDEX IF NOT EXISTS idx_transformed_stock_ticker_date ON transformed_stock_data (ticker, date);
+            """)
+            logger.info("Table 'transformed_stock_data' initialized.")
+
             logger.info("All tables have been successfully initialized.")
         }
     }
