@@ -54,7 +54,6 @@ class TimescaleDBTableInitializer(val jdbcTemplate: JdbcTemplate) {
             """)
             logger.info("Table 'transformed_crypto_data' initialized.")
 
-            // New tables for stock data
             logger.info("Initializing 'raw_stock_data' table...")
             jdbcTemplate.execute("""
                 CREATE TABLE IF NOT EXISTS raw_stock_data (
