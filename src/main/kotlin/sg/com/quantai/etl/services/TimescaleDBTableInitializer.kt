@@ -66,10 +66,9 @@ class TimescaleDBTableInitializer(val jdbcTemplate: JdbcTemplate) {
                     close DECIMAL,
                     volume DECIMAL,
                     closeadj DECIMAL,
-                    source_file VARCHAR(255),
                     created_at TIMESTAMPTZ DEFAULT NOW()
                 );
-                CREATE INDEX IF NOT EXISTS idx_raw_stock_ticker_date ON raw_stock_data (ticker, date);
+                CREATE INDEX IF NOT EXISTS idx_raw_stock_nasdaq_ticker_date ON raw_stock_nasdaq_data (ticker, date);
             """)
             logger.info("Table 'raw_stock_nasdaq_data' initialized.")
 
