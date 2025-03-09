@@ -54,9 +54,9 @@ class TimescaleDBTableInitializer(val jdbcTemplate: JdbcTemplate) {
             """)
             logger.info("Table 'transformed_crypto_data' initialized.")
 
-            logger.info("Initializing 'raw_stock_data' table...")
+            logger.info("Initializing 'raw_stock_nasdaq_data' table...")
             jdbcTemplate.execute("""
-                CREATE TABLE IF NOT EXISTS raw_stock_data (
+                CREATE TABLE IF NOT EXISTS raw_stock_nasdaq_data (
                     id SERIAL PRIMARY KEY,
                     ticker VARCHAR(20) NOT NULL,
                     date TIMESTAMPTZ NOT NULL,
@@ -71,7 +71,7 @@ class TimescaleDBTableInitializer(val jdbcTemplate: JdbcTemplate) {
                 );
                 CREATE INDEX IF NOT EXISTS idx_raw_stock_ticker_date ON raw_stock_data (ticker, date);
             """)
-            logger.info("Table 'raw_stock_data' initialized.")
+            logger.info("Table 'raw_stock_nasdaq_data' initialized.")
 
             logger.info("Initializing 'transformed_stock_data' table...")
             jdbcTemplate.execute("""
