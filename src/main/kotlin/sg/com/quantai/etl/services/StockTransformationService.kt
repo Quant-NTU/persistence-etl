@@ -8,8 +8,8 @@ import org.springframework.stereotype.Service
 import java.util.concurrent.atomic.AtomicBoolean
 
 @Service
-class StockDataTransformationService(private val jdbcTemplate: JdbcTemplate) {
-    private val logger: Logger = LoggerFactory.getLogger(StockDataTransformationService::class.java)
+class StockTransformationService(private val jdbcTemplate: JdbcTemplate) {
+    private val logger: Logger = LoggerFactory.getLogger(StockTransformationService::class.java)
     private val isProcessing = AtomicBoolean(false)
 
     /**
@@ -223,7 +223,7 @@ class StockDataTransformationService(private val jdbcTemplate: JdbcTemplate) {
     /**
      * Manually trigger data transformation
      */
-    fun manuallyTriggerTransformation() {
+    fun transform() {
         transformStockData()
     }
 }
