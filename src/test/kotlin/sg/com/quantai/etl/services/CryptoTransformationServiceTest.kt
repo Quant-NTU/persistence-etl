@@ -3,6 +3,7 @@ package sg.com.quantai.etl.services
 import org.junit.jupiter.api.Test
 import org.mockito.Mockito
 import org.springframework.jdbc.core.JdbcTemplate
+import sg.com.quantai.etl.services.cryptos.CryptoTransformationService
 
 class CryptoTransformationServiceTest {
 

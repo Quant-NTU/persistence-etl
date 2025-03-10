@@ -8,8 +8,8 @@ import org.mockito.Mock
 import org.mockito.Mockito.*
 import org.springframework.http.HttpStatus
 import org.springframework.test.context.junit.jupiter.SpringExtension
-import sg.com.quantai.etl.services.CryptoService
-import sg.com.quantai.etl.services.CryptoTransformationService
+import sg.com.quantai.etl.services.cryptos.CryptoService
+import sg.com.quantai.etl.services.cryptos.CryptoTransformationService
 
 @ExtendWith(SpringExtension::class)
 class CryptoControllerTest {

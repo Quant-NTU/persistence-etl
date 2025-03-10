@@ -1,17 +1,14 @@
 package sg.com.quantai.etl.controllers
 
-import com.fasterxml.jackson.databind.ObjectMapper
-import com.fasterxml.jackson.databind.ObjectWriter
 import sg.com.quantai.etl.data.NewsArticle
 import sg.com.quantai.etl.data.NewsArticleBBC
 import sg.com.quantai.etl.exceptions.NewsArticleException
 import sg.com.quantai.etl.repositories.NewsArticleRepository
 import sg.com.quantai.etl.repositories.NewsArticleBBCRepository
-import sg.com.quantai.etl.services.NewsArticleBBCService
-import sg.com.quantai.etl.services.NewsArticleService
+import sg.com.quantai.etl.services.newsArticle.NewsArticleBBCService
+import sg.com.quantai.etl.services.newsArticle.NewsArticleService
 
 import java.time.LocalDate
-import java.time.YearMonth
 
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
@@ -31,10 +28,8 @@ import org.springframework.test.context.junit.jupiter.SpringExtension
 
 import org.junit.jupiter.api.AfterEach
 import org.mockito.ArgumentMatchers.anyList
-import org.mockito.ArgumentMatchers.argThat
-import org.mockito.Mockito
-import sg.com.quantai.etl.services.NewsArticleSchedulerService
-
+import sg.com.quantai.etl.schedulers.NewsArticleScheduler
+import sg.com.quantai.etl.schedulers.NewsArticleTransformationScheduler
 
 
 @ExtendWith(SpringExtension::class)
@@ -43,7 +38,8 @@ class NewsArticleControllerTest {
     @Mock private lateinit var newsArticleBBCService: NewsArticleBBCService
     @Mock private lateinit var newsArticleRepository: NewsArticleRepository
     @Mock private lateinit var newsArticleBBCRepository: NewsArticleBBCRepository
-    @InjectMocks private lateinit var newsArticleSchedulerService: NewsArticleSchedulerService
+    @InjectMocks private lateinit var newsArticleScheduler: NewsArticleScheduler
+    @InjectMocks private lateinit var newsArticleTransformationScheduler: NewsArticleTransformationScheduler
     @InjectMocks private lateinit var newsArticleController: NewsArticleController
 
     @AfterEach
@@ -224,9 +220,10 @@ class NewsArticleControllerTest {
         doNothing().`when`(newsArticleBBCService).fetchAndSaveAllMonths()
         doNothing().`when`(newsArticleService).transformAndSave()
 
-        newsArticleSchedulerService.scheduleFetchAndTransformNews()
-
+        newsArticleScheduler.pull()
         verify(newsArticleBBCService, times(1)).fetchAndSaveAllMonths()
+
+        newsArticleTransformationScheduler.transform()
         verify(newsArticleService, times(1)).transformAndSave()
     }
 }

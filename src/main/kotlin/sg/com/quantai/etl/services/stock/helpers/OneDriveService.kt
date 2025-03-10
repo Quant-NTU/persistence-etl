@@ -1,4 +1,4 @@
-package sg.com.quantai.etl.services
+package sg.com.quantai.etl.services.stock.helpers
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import org.slf4j.Logger

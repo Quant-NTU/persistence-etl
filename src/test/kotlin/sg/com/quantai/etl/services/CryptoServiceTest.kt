@@ -8,6 +8,7 @@ import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.web.reactive.function.client.WebClient
 import org.springframework.web.util.UriBuilder
 import reactor.core.publisher.Mono
+import sg.com.quantai.etl.services.cryptos.CryptoService
 import java.net.URI
 import java.util.function.Function
 

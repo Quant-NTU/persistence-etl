@@ -1,4 +1,4 @@
-package sg.com.quantai.etl.services
+package sg.com.quantai.etl.services.stock
 
 import org.apache.poi.ss.usermodel.Cell
 import org.apache.poi.ss.usermodel.CellType
@@ -9,7 +9,6 @@ import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.jdbc.datasource.DataSourceUtils
-import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Service
 import java.io.File
 import java.io.FileInputStream
@@ -26,6 +25,7 @@ import javax.sql.DataSource
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import org.postgresql.core.BaseConnection
+import sg.com.quantai.etl.services.stock.helpers.OneDriveService
 
 @Service
 class StockService(
@@ -44,15 +44,14 @@ class StockService(
         "yyyy/MM/dd"
     )
 
-    @Scheduled(cron = "0 0 1 * * ?")
-    fun fetchAndSaveImportStockFromOneDrive() {
+    fun fetchAndSaveStockFromOneDrive() {
         if (isProcessing.getAndSet(true)) {
-            logger.warn("Scheduled stock fetch and save is already in progress")
+            logger.warn("Stock fetch and save is already in progress")
             return
         }
 
         try {
-            logger.info("Scheduled starting stock fetch and save")
+            logger.info("Starting stock fetch and save")
 
             val extractedFiles = oneDriveService.downloadAndExtractLatestFiles()
             if (extractedFiles.isEmpty()) {
@@ -65,7 +64,6 @@ class StockService(
                 try {
                     when (fileType) {
                         "SEP" -> processStockFile(filePath, fileType)
-                        // Add other file types if needed in the future
                         else -> logger.info("Skipping file type $fileType")
                     }
                 } catch (e: Exception) {
@@ -74,7 +72,7 @@ class StockService(
             }
 
             oneDriveService.cleanupTempFiles()
-            logger.info("Scheduled stock fetch and save completed successfully")
+            logger.info("Stock fetch and save completed successfully")
         } catch (e: Exception) {
             logger.error("Error during scheduled stock fetch and save", e)
         } finally {
@@ -103,7 +101,7 @@ class StockService(
     private fun truncateRawStockData() {
         try {
             logger.info("Truncating raw_stock_nasdaq_data table before importing new data")
-            jdbcTemplate.execute("TRUNCATE TABLE raw_stock_data")
+            jdbcTemplate.execute("TRUNCATE TABLE raw_stock_nasdaq_data")
             logger.info("Truncated raw_stock_nasdaq_data table")
         } catch (e: Exception) {
             logger.error("Error truncating raw_stock_nasdaq_data table: ${e.message}")
@@ -154,7 +152,7 @@ class StockService(
                             val volume = getCellValueAsDouble(row.getCell(columnIndices["volume"] ?: -1))
                             val closeadj = getCellValueAsDouble(row.getCell(columnIndices["closeadj"] ?: -1))
 
-                            writer.write("$ticker\t${Timestamp.valueOf(date)}\t${open ?: "\\N"}\t${high ?: "\\N"}\t${low ?: "\\N"}\t${close ?: "\\N"}\t${volume ?: "\\N"}\t${closeadj ?: "\\N"}\t${file.name}\n")
+                            writer.write("$ticker\t${Timestamp.valueOf(date)}\t${open ?: "\\N"}\t${high ?: "\\N"}\t${low ?: "\\N"}\t${close ?: "\\N"}\t${volume ?: "\\N"}\t${closeadj ?: "\\N"}\n")
                             validRowCount++
                         } catch (e: Exception) {
                             logger.warn("Error processing row $i: ${e.message}")
@@ -299,7 +297,7 @@ class StockService(
                             val volume = validateNumericOrNull(values.getOrNull(columnIndices["volume"] ?: -1))
                             val closeadj = validateNumericOrNull(values.getOrNull(columnIndices["closeadj"] ?: -1))
 
-                            writer.write("$ticker\t${Timestamp.valueOf(date)}\t${open ?: "\\\\N"}\t${high ?: "\\\\N"}\t${low ?: "\\\\N"}\t${close ?: "\\\\N"}\t${volume ?: "\\\\N"}\t${closeadj ?: "\\\\N"}\t${file.name}\n")
+                            writer.write("$ticker\t${Timestamp.valueOf(date)}\t${open ?: "\\\\N"}\t${high ?: "\\\\N"}\t${low ?: "\\\\N"}\t${close ?: "\\\\N"}\t${volume ?: "\\\\N"}\t${closeadj ?: "\\\\N"}\n")
                             validRowCount++
 
                             if (totalRowCount % logFrequency == 0) {
@@ -362,11 +360,11 @@ class StockService(
 
         try {
             connection = DataSourceUtils.getConnection(dataSource)
-            connection.autoCommit = false  // Ensure we're in a transaction
+            connection.autoCommit = false
 
             val copyManager = (connection.unwrap(BaseConnection::class.java)).copyAPI
             val sql = """
-            COPY raw_stock_data (ticker, date, open, high, low, close, volume, closeadj, source_file)
+            COPY raw_stock_nasdaq_data (ticker, date, open, high, low, close, volume, closeadj)
             FROM STDIN WITH (FORMAT TEXT, NULL '\\N', DELIMITER E'\t')
         """
 
@@ -475,7 +473,7 @@ class StockService(
 
                 val copyManager = (connection.unwrap(BaseConnection::class.java)).copyAPI
                 val sql = """
-                COPY raw_stock_data (ticker, date, open, high, low, close, volume, closeadj, source_file)
+                COPY raw_stock_nasdaq_data (ticker, date, open, high, low, close, volume, closeadj)
                 FROM STDIN WITH (FORMAT TEXT, NULL '\\N', DELIMITER E'\t')
             """
 
@@ -522,10 +520,10 @@ class StockService(
             var line: String?
             while (reader.readLine().also { line = it } != null) {
                 val values = line?.split("\t") ?: continue
-                if (values.size < 9) continue
+                if (values.size < 8) continue
 
                 // Create array with explicit Any? type
-                val record = arrayOfNulls<Any?>(9).apply {
+                val record = arrayOfNulls<Any?>(8).apply {
                     this[0] = values[0] // ticker
                     this[1] = values[1] // date - already in Timestamp format
                     this[2] = if (values[2] == "\\N") null else values[2].toDoubleOrNull() // open
@@ -534,7 +532,6 @@ class StockService(
                     this[5] = if (values[5] == "\\N") null else values[5].toDoubleOrNull() // close
                     this[6] = if (values[6] == "\\N") null else values[6].toDoubleOrNull() // volume
                     this[7] = if (values[7] == "\\N") null else values[7].toDoubleOrNull() // closeadj
-                    this[8] = values[8]  // source_file
                 }
 
                 records.add(record)
@@ -553,8 +550,8 @@ class StockService(
 
     private fun executeBatchInsert(records: List<Array<Any?>>) {
         val sql = """
-            INSERT INTO raw_stock_data (ticker, date, open, high, low, close, volume, closeadj, source_file) 
-            VALUES (?, ?::timestamp, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO raw_stock_nasdaq_data (ticker, date, open, high, low, close, volume, closeadj) 
+            VALUES (?, ?::timestamp, ?, ?, ?, ?, ?, ?)
         """
 
         var connection: Connection? = null

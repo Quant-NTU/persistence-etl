@@ -3,8 +3,8 @@ package sg.com.quantai.etl.controllers
 
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
-import sg.com.quantai.etl.services.CryptoService
-import sg.com.quantai.etl.services.CryptoTransformationService
+import sg.com.quantai.etl.services.cryptos.CryptoService
+import sg.com.quantai.etl.services.cryptos.CryptoTransformationService
 
 @RestController
 @RequestMapping("/crypto")
@@ -32,31 +32,18 @@ class CryptoController(
         }
     }
 
-    /**
-     * Trigger data transformation
-     */
     @PostMapping("/transform")
     fun triggerTransformation(): ResponseEntity<String> {
         cryptoTransformationService.transformData()
         return ResponseEntity.ok("Transformation triggered!")
     }
 
-    /**
-     * Fetch the top 10 cryptocurrency symbols
-     * Example Usage:
-     * GET /crypto/top-symbols
-     */
     @GetMapping("/top-symbols")
     fun getTopCryptoSymbols(): ResponseEntity<List<String>> {
         val topSymbols = cryptoService.getTopCryptoSymbols()
         return ResponseEntity.ok(topSymbols)
     }
 
-    /**
-     * Fetch and store historical data for the top 10 cryptocurrency symbols (daily automatic)
-     * Example Usage:
-     * POST /crypto/historical/store-top
-     */
     @PostMapping("/historical/store-top")
     fun storeHistoricalDataForTopSymbols(): ResponseEntity<String> {
         return try {
