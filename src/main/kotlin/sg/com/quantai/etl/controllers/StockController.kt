@@ -4,13 +4,13 @@ import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
 import sg.com.quantai.etl.services.stock.StockService
-import sg.com.quantai.etl.services.stock.StockTransformationService
+import sg.com.quantai.etl.services.stock.StockTransformService
 
 @RestController
 @RequestMapping("/stock")
 class StockController(
     private val stockService: StockService,
-    private val stockTransformationService: StockTransformationService
+    private val stockTransformService: StockTransformService
 ) {
 
     @PostMapping("/onedrive/fetch")
@@ -26,7 +26,7 @@ class StockController(
     @PostMapping("/onedrive/transform")
     fun transformStock(): ResponseEntity<String> {
         return try {
-            stockTransformationService.transform()
+            stockTransformService.transform()
             ResponseEntity("Stock data from OneDrive successfully transformed.", HttpStatus.OK)
         } catch (e: Exception) {
             ResponseEntity("Error triggering stock data transformation: ${e.message}", HttpStatus.INTERNAL_SERVER_ERROR)

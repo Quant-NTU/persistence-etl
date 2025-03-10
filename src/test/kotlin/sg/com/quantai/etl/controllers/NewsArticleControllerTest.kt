@@ -29,7 +29,7 @@ import org.springframework.test.context.junit.jupiter.SpringExtension
 import org.junit.jupiter.api.AfterEach
 import org.mockito.ArgumentMatchers.anyList
 import sg.com.quantai.etl.schedulers.NewsArticleScheduler
-import sg.com.quantai.etl.schedulers.NewsArticleTransformationScheduler
+import sg.com.quantai.etl.schedulers.NewsArticleTransformScheduler
 
 
 @ExtendWith(SpringExtension::class)
@@ -39,7 +39,7 @@ class NewsArticleControllerTest {
     @Mock private lateinit var newsArticleRepository: NewsArticleRepository
     @Mock private lateinit var newsArticleBBCRepository: NewsArticleBBCRepository
     @InjectMocks private lateinit var newsArticleScheduler: NewsArticleScheduler
-    @InjectMocks private lateinit var newsArticleTransformationScheduler: NewsArticleTransformationScheduler
+    @InjectMocks private lateinit var newsArticleTransformScheduler: NewsArticleTransformScheduler
     @InjectMocks private lateinit var newsArticleController: NewsArticleController
 
     @AfterEach
@@ -223,7 +223,7 @@ class NewsArticleControllerTest {
         newsArticleScheduler.pull()
         verify(newsArticleBBCService, times(1)).fetchAndSaveAllMonths()
 
-        newsArticleTransformationScheduler.transform()
+        newsArticleTransformScheduler.transform()
         verify(newsArticleService, times(1)).transformAndSave()
     }
 }

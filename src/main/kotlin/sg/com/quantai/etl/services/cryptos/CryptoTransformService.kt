@@ -6,9 +6,11 @@ import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.stereotype.Service
 
 @Service
-class CryptoTransformationService(private val jdbcTemplate: JdbcTemplate) {
+class CryptoTransformService(
+    private val jdbcTemplate: JdbcTemplate
+) {
 
-    private val logger: Logger = LoggerFactory.getLogger(CryptoTransformationService::class.java)
+    private val logger: Logger = LoggerFactory.getLogger(CryptoTransformService::class.java)
 
     /**
      * Transform raw data from raw_crypto_compare_crypto_data and save it into transformed_crypto_data.

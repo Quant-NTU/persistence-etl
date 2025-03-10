@@ -3,12 +3,12 @@ package sg.com.quantai.etl.services
 import org.junit.jupiter.api.Test
 import org.mockito.Mockito
 import org.springframework.jdbc.core.JdbcTemplate
-import sg.com.quantai.etl.services.cryptos.CryptoTransformationService
+import sg.com.quantai.etl.services.cryptos.CryptoTransformService
 
-class CryptoTransformationServiceTest {
+class CryptoTransformServiceTest {
 
     private val jdbcTemplate: JdbcTemplate = Mockito.mock(JdbcTemplate::class.java)
-    private val transformationService = CryptoTransformationService(jdbcTemplate)
+    private val transformationService = CryptoTransformService(jdbcTemplate)
 
     @Test
     fun `test data transformation`() {

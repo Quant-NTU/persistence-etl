@@ -4,12 +4,12 @@ import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
-import sg.com.quantai.etl.services.cryptos.CryptoTransformationService
+import sg.com.quantai.etl.services.cryptos.CryptoTransformService
 
 @Component
-class CryptoTransformationScheduler(private val cryptoTransformService: CryptoTransformationService) {
+class CryptoTransformScheduler(private val cryptoTransformService: CryptoTransformService) {
 
-    private val logger: Logger = LoggerFactory.getLogger(CryptoTransformationScheduler::class.java)
+    private val logger: Logger = LoggerFactory.getLogger(CryptoTransformScheduler::class.java)
 
     @Scheduled(cron = "0 30 0 * * ?") // 12:30 AM UTC daily
     fun transform() {

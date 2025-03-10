@@ -4,13 +4,13 @@ package sg.com.quantai.etl.controllers
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
 import sg.com.quantai.etl.services.cryptos.CryptoService
-import sg.com.quantai.etl.services.cryptos.CryptoTransformationService
+import sg.com.quantai.etl.services.cryptos.CryptoTransformService
 
 @RestController
 @RequestMapping("/crypto")
 class CryptoController(
     private val cryptoService: CryptoService,
-    private val cryptoTransformationService: CryptoTransformationService
+    private val cryptoTransformService: CryptoTransformService
 ) {
 
     /**
@@ -34,7 +34,7 @@ class CryptoController(
 
     @PostMapping("/transform")
     fun triggerTransformation(): ResponseEntity<String> {
-        cryptoTransformationService.transformData()
+        cryptoTransformService.transformData()
         return ResponseEntity.ok("Transformation triggered!")
     }
 
