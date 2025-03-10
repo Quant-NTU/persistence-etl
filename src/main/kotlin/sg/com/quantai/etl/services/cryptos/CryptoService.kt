@@ -1,4 +1,4 @@
-package sg.com.quantai.etl.services
+package sg.com.quantai.etl.services.cryptos
 
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper

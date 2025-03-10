@@ -1,4 +1,4 @@
-package sg.com.quantai.etl.services
+package sg.com.quantai.etl.services.newsArticle
 
 import sg.com.quantai.etl.data.NewsArticleBBC
 import sg.com.quantai.etl.exceptions.NewsArticleException

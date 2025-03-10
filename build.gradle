@@ -2,6 +2,7 @@ buildscript {
     ext {
         kotlinVersion = "2.0.20"
         springBootVersion = "3.3.3"
+        poiVersion = "5.2.3"
     }
     repositories {
         mavenCentral()
@@ -51,12 +52,22 @@ dependencies {
     implementation("io.github.cdimascio:dotenv-kotlin:6.3.1")
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
 
+    implementation("org.apache.poi:poi:${poiVersion}")
+    implementation("org.apache.poi:poi-ooxml:${poiVersion}")
+    implementation("org.apache.poi:poi-ooxml-lite:${poiVersion}")
+
+    implementation("org.apache.commons:commons-compress:1.23.0")
+
+    implementation("xml-apis:xml-apis:1.4.01")
+
+    implementation 'org.jsoup:jsoup:1.15.4'
 
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.mockito:mockito-core")
     testImplementation("io.projectreactor:reactor-test")
 
     developmentOnly("org.springframework.boot:spring-boot-devtools")
+    runtimeOnly("io.netty:netty-resolver-dns-native-macos:4.1.112.Final:osx-aarch_64")
 }
 
 test {

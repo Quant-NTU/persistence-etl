@@ -3,8 +3,8 @@ package sg.com.quantai.etl.controllers
 import sg.com.quantai.etl.data.NewsArticle
 import sg.com.quantai.etl.exceptions.NewsArticleException
 import sg.com.quantai.etl.repositories.NewsArticleRepository
-import sg.com.quantai.etl.services.NewsArticleBBCService
-import sg.com.quantai.etl.services.NewsArticleService
+import sg.com.quantai.etl.services.newsArticle.NewsArticleBBCService
+import sg.com.quantai.etl.services.newsArticle.NewsArticleService
 
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.http.ResponseEntity
