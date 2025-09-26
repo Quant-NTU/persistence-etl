@@ -54,6 +54,68 @@ class TimescaleDBTableInitializer(val jdbcTemplate: JdbcTemplate) {
             """)
             logger.info("Table 'transformed_crypto_data' initialized.")
 
+            logger.info("Initializing 'raw_stock_data' table...")
+            jdbcTemplate.execute("""
+                CREATE TABLE IF NOT EXISTS raw_stock_data (
+                    id SERIAL PRIMARY KEY,
+                    symbol VARCHAR(10) NOT NULL,
+                    open DECIMAL NOT NULL,
+                    high DECIMAL NOT NULL,
+                    low DECIMAL NOT NULL,
+                    close DECIMAL NOT NULL,
+                    volume BIGINT NOT NULL,
+                    timestamp TIMESTAMPTZ NOT NULL
+                );
+            """)
+            logger.info("Table 'raw_stock_data' initialized.")
+
+            logger.info("Initializing 'transformed_stock_data' table...")
+            jdbcTemplate.execute("""
+                CREATE TABLE IF NOT EXISTS transformed_stock_data (
+                    id SERIAL PRIMARY KEY,
+                    symbol VARCHAR(10) NOT NULL,
+                    open DECIMAL NOT NULL,
+                    high DECIMAL NOT NULL,
+                    low DECIMAL NOT NULL,
+                    close DECIMAL NOT NULL,
+                    volume BIGINT NOT NULL,
+                    avg_price DECIMAL,
+                    price_change DECIMAL,
+                    timestamp TIMESTAMPTZ NOT NULL
+                );
+            """)
+            logger.info("Table 'transformed_stock_data' initialized.")
+
+            logger.info("Initializing 'raw_forex_data' table...")
+            jdbcTemplate.execute("""
+                CREATE TABLE IF NOT EXISTS raw_forex_data (
+                    id SERIAL PRIMARY KEY,
+                    currency_pair VARCHAR(10) NOT NULL,
+                    open DECIMAL NOT NULL,
+                    high DECIMAL NOT NULL,
+                    low DECIMAL NOT NULL,
+                    close DECIMAL NOT NULL,
+                    timestamp TIMESTAMPTZ NOT NULL
+                );
+            """)
+            logger.info("Table 'raw_forex_data' initialized.")
+
+            logger.info("Initializing 'transformed_forex_data' table...")
+            jdbcTemplate.execute("""
+                CREATE TABLE IF NOT EXISTS transformed_forex_data (
+                    id SERIAL PRIMARY KEY,
+                    currency_pair VARCHAR(10) NOT NULL,
+                    open DECIMAL NOT NULL,
+                    high DECIMAL NOT NULL,
+                    low DECIMAL NOT NULL,
+                    close DECIMAL NOT NULL,
+                    avg_price DECIMAL,
+                    price_change DECIMAL,
+                    timestamp TIMESTAMPTZ NOT NULL
+                );
+            """)
+            logger.info("Table 'transformed_forex_data' initialized.")
+
             logger.info("All tables have been successfully initialized.")
         }
     }
