@@ -85,7 +85,7 @@ class StockServiceTest {
         ).thenReturn(1) // Successful insertion
 
         // Call the method
-        stockService.fetchAndStoreHistoricalData("AAPL", 5)
+        stockService.fetchAndStoreHistoricalData("AAPL", 5, "1day")
 
         // Verify database interactions
         Mockito.verify(jdbcTemplate, Mockito.times(1)).queryForObject(

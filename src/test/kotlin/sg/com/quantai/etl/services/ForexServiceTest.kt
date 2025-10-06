@@ -84,7 +84,7 @@ class ForexServiceTest {
         ).thenReturn(1) // Successful insertion
 
         // Call the method
-        forexService.fetchAndStoreHistoricalData("EUR/USD", 5)
+        forexService.fetchAndStoreHistoricalData("EUR/USD", 5, "1day")
 
         // Verify database interactions
         Mockito.verify(jdbcTemplate, Mockito.times(1)).queryForObject(

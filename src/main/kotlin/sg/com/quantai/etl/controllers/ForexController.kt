@@ -21,14 +21,25 @@ class ForexController(
     @PostMapping("/historical/store")
     fun fetchAndStoreHistoricalData(
         @RequestParam currencyPair: String,
-        @RequestParam(defaultValue = "30") outputsize: Int
+        @RequestParam(defaultValue = "30") limit: Int,
+        @RequestParam(defaultValue = "1day") interval: String
     ): ResponseEntity<String> {
         return try {
-            forexService.fetchAndStoreHistoricalData(currencyPair, outputsize)
-            ResponseEntity.ok("Historical data for $currencyPair fetched and stored successfully")
+            val supportedIntervals = forexService.getSupportedIntervals()
+            if (!supportedIntervals.contains(interval)) {
+                return ResponseEntity.badRequest().body("Unsupported interval: $interval. Supported intervals: ${supportedIntervals.joinToString(", ")}")
+            }
+            forexService.fetchAndStoreHistoricalData(currencyPair, limit, interval)
+            ResponseEntity.ok("Historical data for $currencyPair (interval: $interval) fetched and stored successfully")
         } catch (e: Exception) {
             ResponseEntity.internalServerError().body("Error fetching data for $currencyPair: ${e.message}")
         }
+    }
+
+    @GetMapping("/intervals")
+    fun getSupportedIntervals(): ResponseEntity<List<String>> {
+        val intervals = forexService.getSupportedIntervals()
+        return ResponseEntity.ok(intervals)
     }
 
     @PostMapping("/historical/store-top")

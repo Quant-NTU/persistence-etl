@@ -12,43 +12,73 @@ class ForexTransformationService(private val jdbcTemplate: JdbcTemplate) {
 
     /**
      * Transform raw data from raw_forex_data and save it into transformed_forex_data.
+     * Optimized to avoid large table joins by using streaming approach.
      */
     fun transformData() {
-        logger.info("Starting forex data transformation...")
+        logger.info("Starting optimized forex data transformation...")
 
+        try {
+            // Get distinct currency pairs and intervals to process
+            val pairsAndIntervals = jdbcTemplate.queryForList("""
+                SELECT DISTINCT currency_pair, interval 
+                FROM raw_forex_data 
+                WHERE NOT EXISTS (
+                    SELECT 1 FROM transformed_forex_data t 
+                    WHERE t.currency_pair = raw_forex_data.currency_pair 
+                    AND t.interval = raw_forex_data.interval
+                    AND t.timestamp = raw_forex_data.timestamp
+                )
+                ORDER BY currency_pair, interval
+            """)
+
+            var totalRowsProcessed = 0
+            
+            for (row in pairsAndIntervals) {
+                val currencyPair = row["currency_pair"] as String
+                val interval = row["interval"] as String
+                
+                val rowsProcessed = transformDataForPairAndInterval(currencyPair, interval)
+                totalRowsProcessed += rowsProcessed
+                
+                logger.info("Processed $rowsProcessed records for $currencyPair ($interval)")
+            }
+            
+            logger.info("Forex transformation completed successfully. Total rows processed: $totalRowsProcessed")
+        } catch (e: Exception) {
+            logger.error("Error during forex transformation: ${e.message}")
+        }
+    }
+
+    private fun transformDataForPairAndInterval(currencyPair: String, interval: String): Int {
+        // Use INSERT ... ON CONFLICT to avoid duplicates without expensive joins
         val query = """
             INSERT INTO transformed_forex_data (
                 currency_pair, 
+                interval,
                 open, 
                 high, 
                 low, 
                 close, 
-                avg_price, 
                 price_change, 
                 timestamp
             )
             SELECT 
-                raw.currency_pair,
-                MIN(raw.open) AS open,
-                MAX(raw.high) AS high,
-                MIN(raw.low) AS low,
-                MAX(raw.close) AS close,
-                AVG((raw.high + raw.low) / 2) AS avg_price,
-                ((MAX(raw.close) - MIN(raw.open)) / MIN(raw.open)) * 100 AS price_change,
-                date_trunc('day', raw.timestamp) AS timestamp
-            FROM raw_forex_data raw
-            LEFT JOIN transformed_forex_data transformed
-            ON raw.currency_pair = transformed.currency_pair
-            AND date_trunc('day', raw.timestamp) = transformed.timestamp
-            WHERE transformed.timestamp IS NULL
-            GROUP BY raw.currency_pair, date_trunc('day', raw.timestamp);
+                currency_pair,
+                interval,
+                open,
+                high,
+                low,
+                close,
+                CASE 
+                    WHEN open > 0 THEN ((close - open) / open) * 100 
+                    ELSE 0 
+                END AS price_change,
+                timestamp
+            FROM raw_forex_data 
+            WHERE currency_pair = ? AND interval = ?
+            ON CONFLICT (currency_pair, interval, timestamp) DO NOTHING
         """
 
-        try {
-            val rowsAffected = jdbcTemplate.update(query)
-            logger.info("Forex transformation completed successfully. Rows inserted: $rowsAffected")
-        } catch (e: Exception) {
-            logger.error("Error during forex transformation: ${e.message}")
-        }
+        return jdbcTemplate.update(query, currencyPair, interval)
     }
 }

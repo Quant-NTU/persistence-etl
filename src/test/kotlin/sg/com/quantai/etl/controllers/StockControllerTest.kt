@@ -26,21 +26,23 @@ class StockControllerTest {
 
     @Test
     fun `fetchAndStoreHistoricalData returns OK on success`() {
-        doNothing().`when`(stockService).fetchAndStoreHistoricalData("AAPL", 30)
+        `when`(stockService.getSupportedIntervals()).thenReturn(listOf("1min", "5min", "15min", "1h", "4h", "1day"))
+        doNothing().`when`(stockService).fetchAndStoreHistoricalData("AAPL", 30, "1day")
 
-        val response = controller.fetchAndStoreHistoricalData("AAPL", 30)
+        val response = controller.fetchAndStoreHistoricalData("AAPL", 30, "1day")
 
         assertEquals(HttpStatus.OK, response.statusCode)
-        assertEquals("Historical data for AAPL fetched and stored successfully", response.body)
-        verify(stockService, times(1)).fetchAndStoreHistoricalData("AAPL", 30)
+        assertEquals("Historical data for AAPL (interval: 1day) fetched and stored successfully", response.body)
+        verify(stockService, times(1)).fetchAndStoreHistoricalData("AAPL", 30, "1day")
     }
 
     @Test
     fun `fetchAndStoreHistoricalData returns INTERNAL_SERVER_ERROR on exception`() {
-        `when`(stockService.fetchAndStoreHistoricalData("AAPL", 30))
+        `when`(stockService.getSupportedIntervals()).thenReturn(listOf("1min", "5min", "15min", "1h", "4h", "1day"))
+        `when`(stockService.fetchAndStoreHistoricalData("AAPL", 30, "1day"))
             .thenThrow(RuntimeException("API error"))
 
-        val response = controller.fetchAndStoreHistoricalData("AAPL", 30)
+        val response = controller.fetchAndStoreHistoricalData("AAPL", 30, "1day")
 
         assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.statusCode)
         assertEquals("Error fetching data for AAPL: API error", response.body)

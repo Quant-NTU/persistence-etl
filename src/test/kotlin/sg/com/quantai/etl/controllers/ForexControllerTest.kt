@@ -26,21 +26,23 @@ class ForexControllerTest {
 
     @Test
     fun `fetchAndStoreHistoricalData returns OK on success`() {
-        doNothing().`when`(forexService).fetchAndStoreHistoricalData("EUR/USD", 30)
+        `when`(forexService.getSupportedIntervals()).thenReturn(listOf("1min", "5min", "15min", "1h", "4h", "1day"))
+        doNothing().`when`(forexService).fetchAndStoreHistoricalData("EUR/USD", 30, "1day")
 
-        val response = controller.fetchAndStoreHistoricalData("EUR/USD", 30)
+        val response = controller.fetchAndStoreHistoricalData("EUR/USD", 30, "1day")
 
         assertEquals(HttpStatus.OK, response.statusCode)
-        assertEquals("Historical data for EUR/USD fetched and stored successfully", response.body)
-        verify(forexService, times(1)).fetchAndStoreHistoricalData("EUR/USD", 30)
+        assertEquals("Historical data for EUR/USD (interval: 1day) fetched and stored successfully", response.body)
+        verify(forexService, times(1)).fetchAndStoreHistoricalData("EUR/USD", 30, "1day")
     }
 
     @Test
     fun `fetchAndStoreHistoricalData returns INTERNAL_SERVER_ERROR on exception`() {
-        `when`(forexService.fetchAndStoreHistoricalData("EUR/USD", 30))
+        `when`(forexService.getSupportedIntervals()).thenReturn(listOf("1min", "5min", "15min", "1h", "4h", "1day"))
+        `when`(forexService.fetchAndStoreHistoricalData("EUR/USD", 30, "1day"))
             .thenThrow(RuntimeException("API error"))
 
-        val response = controller.fetchAndStoreHistoricalData("EUR/USD", 30)
+        val response = controller.fetchAndStoreHistoricalData("EUR/USD", 30, "1day")
 
         assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.statusCode)
         assertEquals("Error fetching data for EUR/USD: API error", response.body)

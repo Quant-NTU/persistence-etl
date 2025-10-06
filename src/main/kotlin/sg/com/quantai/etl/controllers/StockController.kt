@@ -21,14 +21,25 @@ class StockController(
     @PostMapping("/historical/store")
     fun fetchAndStoreHistoricalData(
         @RequestParam symbol: String,
-        @RequestParam(defaultValue = "30") outputsize: Int
+        @RequestParam(defaultValue = "30") limit: Int,
+        @RequestParam(defaultValue = "1day") interval: String
     ): ResponseEntity<String> {
         return try {
-            stockService.fetchAndStoreHistoricalData(symbol, outputsize)
-            ResponseEntity.ok("Historical data for $symbol fetched and stored successfully")
+            val supportedIntervals = stockService.getSupportedIntervals()
+            if (!supportedIntervals.contains(interval)) {
+                return ResponseEntity.badRequest().body("Unsupported interval: $interval. Supported intervals: ${supportedIntervals.joinToString(", ")}")
+            }
+            stockService.fetchAndStoreHistoricalData(symbol, limit, interval)
+            ResponseEntity.ok("Historical data for $symbol (interval: $interval) fetched and stored successfully")
         } catch (e: Exception) {
             ResponseEntity.internalServerError().body("Error fetching data for $symbol: ${e.message}")
         }
+    }
+
+    @GetMapping("/intervals")
+    fun getSupportedIntervals(): ResponseEntity<List<String>> {
+        val intervals = stockService.getSupportedIntervals()
+        return ResponseEntity.ok(intervals)
     }
 
     @PostMapping("/historical/store-top")
