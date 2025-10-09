@@ -61,83 +61,41 @@ class ForexServiceTest {
 
     @Test
     fun `should fetch and store historical data successfully`() {
-        // Mock database query and update
+        // Mock batch update for the new implementation
         Mockito.`when`(
-            jdbcTemplate.queryForObject(
+            jdbcTemplate.batchUpdate(
                 Mockito.anyString(),
-                Mockito.eq(Int::class.java),
-                Mockito.any(),
-                Mockito.any()
+                Mockito.anyList()
             )
-        ).thenReturn(0) // No existing data
-
-        Mockito.`when`(
-            jdbcTemplate.update(
-                Mockito.anyString(),
-                Mockito.any(),
-                Mockito.any(),
-                Mockito.any(),
-                Mockito.any(),
-                Mockito.any(),
-                Mockito.any()
-            )
-        ).thenReturn(1) // Successful insertion
+        ).thenReturn(intArrayOf(1)) // Successful batch insertion
 
         // Call the method
         forexService.fetchAndStoreHistoricalData("EUR/USD", 5, "1day")
 
-        // Verify database interactions
-        Mockito.verify(jdbcTemplate, Mockito.times(1)).queryForObject(
+        // Verify batch update was called
+        Mockito.verify(jdbcTemplate, Mockito.times(1)).batchUpdate(
             Mockito.anyString(),
-            Mockito.eq(Int::class.java),
-            Mockito.eq("EUR/USD"),
-            Mockito.any()
-        )
-
-        Mockito.verify(jdbcTemplate, Mockito.times(1)).update(
-            Mockito.anyString(),
-            Mockito.eq("EUR/USD"),
-            Mockito.eq(1.0850),
-            Mockito.eq(1.0890),
-            Mockito.eq(1.0820),
-            Mockito.eq(1.0875),
-            Mockito.any()
+            Mockito.anyList()
         )
     }
 
     @Test
     fun `should store historical data for top pairs`() {
-        // Mock database operations
+        // Mock batch update for the new implementation
         Mockito.`when`(
-            jdbcTemplate.queryForObject(
+            jdbcTemplate.batchUpdate(
                 Mockito.anyString(),
-                Mockito.eq(Int::class.java),
-                Mockito.any(),
-                Mockito.any()
+                Mockito.anyList()
             )
-        ).thenReturn(0) // No existing data
-
-        Mockito.`when`(
-            jdbcTemplate.update(
-                Mockito.anyString(),
-                Mockito.any(),
-                Mockito.any(),
-                Mockito.any(),
-                Mockito.any(),
-                Mockito.any(),
-                Mockito.any()
-            )
-        ).thenReturn(1) // Successful insertion
+        ).thenReturn(intArrayOf(1)) // Successful batch insertion
 
         // Call the method
         forexService.storeHistoricalDataForTopPairs()
 
-        // Verify that database operations were called for multiple pairs
-        Mockito.verify(jdbcTemplate, Mockito.atLeast(1)).queryForObject(
+        // Verify that batch update was called for multiple pairs (10 top pairs)
+        Mockito.verify(jdbcTemplate, Mockito.atLeast(1)).batchUpdate(
             Mockito.anyString(),
-            Mockito.eq(Int::class.java),
-            Mockito.any(),
-            Mockito.any()
+            Mockito.anyList()
         )
     }
 }

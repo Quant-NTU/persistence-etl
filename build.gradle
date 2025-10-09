@@ -19,6 +19,11 @@ apply plugin: "kotlin-spring"
 apply plugin: "org.springframework.boot"
 apply plugin: "io.spring.dependency-management"
 
+java {
+    sourceCompatibility = '21'
+    targetCompatibility = '21'
+}
+
 compileKotlin {
     kotlinOptions {
         freeCompilerArgs = ["-Xjsr305=strict"]

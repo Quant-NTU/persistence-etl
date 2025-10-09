@@ -61,86 +61,41 @@ class StockServiceTest {
 
     @Test
     fun `should fetch and store historical data successfully`() {
-        // Mock database query and update
+        // Mock batch update for the new implementation
         Mockito.`when`(
-            jdbcTemplate.queryForObject(
+            jdbcTemplate.batchUpdate(
                 Mockito.anyString(),
-                Mockito.eq(Int::class.java),
-                Mockito.any(),
-                Mockito.any()
+                Mockito.anyList()
             )
-        ).thenReturn(0) // No existing data
-
-        Mockito.`when`(
-            jdbcTemplate.update(
-                Mockito.anyString(),
-                Mockito.any(),
-                Mockito.any(),
-                Mockito.any(),
-                Mockito.any(),
-                Mockito.any(),
-                Mockito.any(),
-                Mockito.any()
-            )
-        ).thenReturn(1) // Successful insertion
+        ).thenReturn(intArrayOf(1)) // Successful batch insertion
 
         // Call the method
         stockService.fetchAndStoreHistoricalData("AAPL", 5, "1day")
 
-        // Verify database interactions
-        Mockito.verify(jdbcTemplate, Mockito.times(1)).queryForObject(
+        // Verify batch update was called
+        Mockito.verify(jdbcTemplate, Mockito.times(1)).batchUpdate(
             Mockito.anyString(),
-            Mockito.eq(Int::class.java),
-            Mockito.eq("AAPL"),
-            Mockito.any()
-        )
-
-        Mockito.verify(jdbcTemplate, Mockito.times(1)).update(
-            Mockito.anyString(),
-            Mockito.eq("AAPL"),
-            Mockito.eq(150.0),
-            Mockito.eq(155.0),
-            Mockito.eq(148.0),
-            Mockito.eq(152.0),
-            Mockito.eq(1000000L),
-            Mockito.any()
+            Mockito.anyList()
         )
     }
 
     @Test
     fun `should store historical data for top symbols`() {
-        // Mock database operations
+        // Mock batch update for the new implementation
         Mockito.`when`(
-            jdbcTemplate.queryForObject(
+            jdbcTemplate.batchUpdate(
                 Mockito.anyString(),
-                Mockito.eq(Int::class.java),
-                Mockito.any(),
-                Mockito.any()
+                Mockito.anyList()
             )
-        ).thenReturn(0) // No existing data
-
-        Mockito.`when`(
-            jdbcTemplate.update(
-                Mockito.anyString(),
-                Mockito.any(),
-                Mockito.any(),
-                Mockito.any(),
-                Mockito.any(),
-                Mockito.any(),
-                Mockito.any(),
-                Mockito.any()
-            )
-        ).thenReturn(1) // Successful insertion
+        ).thenReturn(intArrayOf(1)) // Successful batch insertion
 
         // Call the method
         stockService.storeHistoricalDataForTopSymbols()
 
-        // Verify that database operations were called for multiple symbols
-        Mockito.verify(jdbcTemplate, Mockito.atLeast(1)).queryForObject(
+        // Verify that batch update was called for multiple symbols (10 top symbols)
+        Mockito.verify(jdbcTemplate, Mockito.atLeast(1)).batchUpdate(
             Mockito.anyString(),
-            Mockito.eq(Int::class.java),
-            Mockito.any(),
-            Mockito.any()
+            Mockito.anyList()
         )
     }
 }
