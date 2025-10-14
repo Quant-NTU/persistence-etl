@@ -176,6 +176,18 @@ class TimescaleDBTableInitializer(val jdbcTemplate: JdbcTemplate) {
                 logger.info("Unique constraint for transformed_forex_data already exists or failed to create: ${e.message}")
             }
             
+            try {
+                jdbcTemplate.execute("ALTER TABLE raw_crypto_compare_crypto_data ADD CONSTRAINT uk_raw_crypto_symbol_currency_timestamp UNIQUE (symbol, currency, timestamp);")
+            } catch (e: Exception) {
+                logger.info("Unique constraint for raw_crypto_compare_crypto_data already exists or failed to create: ${e.message}")
+            }
+            
+            try {
+                jdbcTemplate.execute("ALTER TABLE transformed_crypto_data ADD CONSTRAINT uk_transformed_crypto_symbol_currency_timestamp UNIQUE (symbol, currency, timestamp);")
+            } catch (e: Exception) {
+                logger.info("Unique constraint for transformed_crypto_data already exists or failed to create: ${e.message}")
+            }
+            
             logger.info("Unique constraints added successfully.")
 
             logger.info("All tables, indexes, and constraints have been successfully initialized.")
