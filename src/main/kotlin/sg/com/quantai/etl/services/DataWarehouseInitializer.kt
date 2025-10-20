@@ -4,16 +4,16 @@ import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.boot.CommandLineRunner
 import org.springframework.context.annotation.Bean
+import org.springframework.context.annotation.Configuration
 import org.springframework.jdbc.core.JdbcTemplate
-import org.springframework.stereotype.Component
 
-@Component
+@Configuration
 class DataWarehouseInitializer(val jdbcTemplate: JdbcTemplate) {
 
     private val logger: Logger = LoggerFactory.getLogger(DataWarehouseInitializer::class.java)
 
-    @Bean(name = ["dataWarehouseInitializer"])
-    fun runDataWarehouseInitializer(): CommandLineRunner {
+    @Bean
+    fun dataWarehouseRunner(): CommandLineRunner {
         return CommandLineRunner {
 
             logger.info("Initializing data warehouse schema...")
