@@ -19,6 +19,11 @@ apply plugin: "kotlin-spring"
 apply plugin: "org.springframework.boot"
 apply plugin: "io.spring.dependency-management"
 
+java {
+    sourceCompatibility = '21'
+    targetCompatibility = '21'
+}
+
 compileKotlin {
     kotlinOptions {
         freeCompilerArgs = ["-Xjsr305=strict"]
@@ -55,6 +60,7 @@ dependencies {
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.mockito:mockito-core")
     testImplementation("io.projectreactor:reactor-test")
+    testImplementation("org.junit.platform:junit-platform-launcher")
 
     developmentOnly("org.springframework.boot:spring-boot-devtools")
 }
