@@ -193,6 +193,13 @@ class DataWarehouseInitializer(val jdbcTemplate: JdbcTemplate) {
             WITH DATA;
         """)
         logger.info("Materialized view 'mv_daily_ohlc_summary' created.")
+        
+        // Create unique index for concurrent refresh
+        jdbcTemplate.execute("""
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_mv_daily_ohlc_unique 
+            ON mv_daily_ohlc_summary (symbol_code, asset_type_code, interval_code, trading_day);
+        """)
+        logger.info("Unique index 'idx_mv_daily_ohlc_unique' created.")
 
         // Materialized view for hourly aggregates
         jdbcTemplate.execute("""
@@ -217,6 +224,13 @@ class DataWarehouseInitializer(val jdbcTemplate: JdbcTemplate) {
             WITH DATA;
         """)
         logger.info("Materialized view 'mv_hourly_ohlc_summary' created.")
+        
+        // Create unique index for concurrent refresh
+        jdbcTemplate.execute("""
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_mv_hourly_ohlc_unique 
+            ON mv_hourly_ohlc_summary (symbol_code, asset_type_code, interval_code, trading_hour);
+        """)
+        logger.info("Unique index 'idx_mv_hourly_ohlc_unique' created.")
 
         // Materialized view for asset type summary
         jdbcTemplate.execute("""
@@ -235,6 +249,13 @@ class DataWarehouseInitializer(val jdbcTemplate: JdbcTemplate) {
             WITH DATA;
         """)
         logger.info("Materialized view 'mv_asset_type_summary' created.")
+        
+        // Create unique index for concurrent refresh
+        jdbcTemplate.execute("""
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_mv_asset_type_unique 
+            ON mv_asset_type_summary (asset_type_code);
+        """)
+        logger.info("Unique index 'idx_mv_asset_type_unique' created.")
 
         // Materialized view for symbol-specific analytics
         jdbcTemplate.execute("""
@@ -258,6 +279,13 @@ class DataWarehouseInitializer(val jdbcTemplate: JdbcTemplate) {
             WITH DATA;
         """)
         logger.info("Materialized view 'mv_symbol_analytics' created.")
+        
+        // Create unique index for concurrent refresh
+        jdbcTemplate.execute("""
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_mv_symbol_analytics_unique 
+            ON mv_symbol_analytics (symbol_code, asset_type_code, exchange);
+        """)
+        logger.info("Unique index 'idx_mv_symbol_analytics_unique' created.")
 
         logger.info("Materialized views created successfully.")
     }

@@ -325,35 +325,51 @@ class DataWarehouseETLService(
     fun refreshMaterializedViews() {
         logger.info("Refreshing materialized views...")
         
+        val errors = mutableListOf<String>()
+        
         try {
             jdbcTemplate.execute("REFRESH MATERIALIZED VIEW CONCURRENTLY mv_daily_ohlc_summary;")
             logger.info("Refreshed 'mv_daily_ohlc_summary'")
         } catch (e: Exception) {
-            logger.error("Failed to refresh mv_daily_ohlc_summary: ${e.message}")
+            val errorMsg = "Failed to refresh mv_daily_ohlc_summary: ${e.message}"
+            logger.error(errorMsg, e)
+            errors.add(errorMsg)
         }
         
         try {
             jdbcTemplate.execute("REFRESH MATERIALIZED VIEW CONCURRENTLY mv_hourly_ohlc_summary;")
             logger.info("Refreshed 'mv_hourly_ohlc_summary'")
         } catch (e: Exception) {
-            logger.error("Failed to refresh mv_hourly_ohlc_summary: ${e.message}")
+            val errorMsg = "Failed to refresh mv_hourly_ohlc_summary: ${e.message}"
+            logger.error(errorMsg, e)
+            errors.add(errorMsg)
         }
         
         try {
             jdbcTemplate.execute("REFRESH MATERIALIZED VIEW CONCURRENTLY mv_asset_type_summary;")
             logger.info("Refreshed 'mv_asset_type_summary'")
         } catch (e: Exception) {
-            logger.error("Failed to refresh mv_asset_type_summary: ${e.message}")
+            val errorMsg = "Failed to refresh mv_asset_type_summary: ${e.message}"
+            logger.error(errorMsg, e)
+            errors.add(errorMsg)
         }
         
         try {
             jdbcTemplate.execute("REFRESH MATERIALIZED VIEW CONCURRENTLY mv_symbol_analytics;")
             logger.info("Refreshed 'mv_symbol_analytics'")
         } catch (e: Exception) {
-            logger.error("Failed to refresh mv_symbol_analytics: ${e.message}")
+            val errorMsg = "Failed to refresh mv_symbol_analytics: ${e.message}"
+            logger.error(errorMsg, e)
+            errors.add(errorMsg)
         }
         
-        logger.info("Materialized views refresh completed.")
+        if (errors.isNotEmpty()) {
+            val errorSummary = "Materialized views refresh completed with ${errors.size} error(s): ${errors.joinToString("; ")}"
+            logger.error(errorSummary)
+            throw RuntimeException(errorSummary)
+        }
+        
+        logger.info("Materialized views refresh completed successfully.")
     }
 
     /**
