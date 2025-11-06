@@ -1,5 +1,5 @@
 ARG GRADLE_VERSION=8.12.0-jdk21
-ARG OPENJDK_VERSION=21-slim
+ARG OPENJDK_VERSION=21-jdk-alpine
 
 FROM gradle:${GRADLE_VERSION} AS dev
 WORKDIR /src
@@ -9,7 +9,7 @@ COPY --chown=gradle:gradle . /src
 RUN gradle clean
 RUN gradle build -x test
 
-FROM openjdk:${OPENJDK_VERSION} AS jdk
+FROM eclipse-temurin:${OPENJDK_VERSION} AS jdk
 COPY --from=gradle /src/build/libs/quant-ai-persistence-etl.jar /src/server/server.jar
 
 FROM jdk AS local
