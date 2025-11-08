@@ -33,6 +33,26 @@ class CryptoController(
     }
 
     /**
+     * Fetch and store historical cryptocurrency data by date
+     * Example Usage:
+     * POST /crypto/historical/store?symbol=BTC&currency=USD&startDate=2025-10-01&endDate=2025-10-31
+     */
+    @PostMapping("/historical/store-by-date")
+    fun fetchAndStoreHistoricalDataByDate(
+        @RequestParam symbol: String,
+        @RequestParam currency: String = "USD", //USD by default  
+        @RequestParam startDate: String,
+        @RequestParam endDate: String
+    ): ResponseEntity<String> {
+        return try {
+            cryptoService.fetchAndStoreHistoricalDataByDate(symbol, currency, startDate, endDate)
+            ResponseEntity.ok("Historical data for $symbol-$currency from $startDate to $endDate successfully stored!")
+        } catch (e: Exception) {
+            ResponseEntity.status(500).body("Error storing historical data: ${e.message}")
+        }
+    }
+
+    /**
      * Trigger data transformation
      */
     @PostMapping("/transform")

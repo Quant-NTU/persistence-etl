@@ -83,4 +83,37 @@ class CryptoControllerTest {
 
         assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.statusCode)
     }
+
+    @Test
+    fun `should fetch and store historical data by date successfully`() {
+        doNothing().`when`(cryptoService).fetchAndStoreHistoricalDataByDate(
+            "BTC", "USD", "2025-10-01", "2025-10-31"
+        )
+
+        val response = cryptoController.fetchAndStoreHistoricalDataByDate(
+            "BTC", "USD", "2025-10-01", "2025-10-31"
+        )
+
+        assertEquals(HttpStatus.OK, response.statusCode)
+        assertEquals(
+            "Historical data for BTC-USD from 2025-10-01 to 2025-10-31 successfully stored!",
+            response.body
+        )
+    }
+
+    @Test
+    fun `should handle error while storing historical data by date`() {
+        doThrow(RuntimeException("Mocked exception"))
+            .`when`(cryptoService).fetchAndStoreHistoricalDataByDate(
+                "BTC", "USD", "2025-10-01", "2025-10-31"
+            )
+
+        val response = cryptoController.fetchAndStoreHistoricalDataByDate(
+            "BTC", "USD", "2025-10-01", "2025-10-31"
+        )
+
+        assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.statusCode)
+        assert(response.body!!.contains("Error storing historical data: Mocked exception"))
+    }
+
 }
