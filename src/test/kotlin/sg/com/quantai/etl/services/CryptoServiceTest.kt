@@ -107,4 +107,56 @@ class CryptoServiceTest {
         Mockito.`when`(jdbcTemplate.update(Mockito.anyString())).thenReturn(1)
         Mockito.`when`(jdbcTemplate.update(Mockito.anyString())).thenReturn(1)
     }
+
+    @Test
+    fun `should fetch and store historical data by date successfully`() {
+        // Mock database call: no data exists yet for that timestamp
+        Mockito.`when`(
+            jdbcTemplate.queryForObject(
+                Mockito.anyString(),
+                Mockito.eq(Int::class.java),
+                Mockito.any(),
+                Mockito.any()
+            )
+        ).thenReturn(0) // no existing data
+
+        // Mock insert successful
+        Mockito.`when`(
+            jdbcTemplate.update(
+                Mockito.anyString(),
+                Mockito.any(),
+                Mockito.any(),
+                Mockito.any(),
+                Mockito.any(),
+                Mockito.any(),
+                Mockito.any(),
+                Mockito.any(),
+                Mockito.any()
+            )
+        ).thenReturn(1)
+
+        // Call method with date range
+        cryptoService.fetchAndStoreHistoricalDataByDate("BTC", "USD", "2025-01-01", "2025-01-02")
+
+        // Verify interactions with DB
+        Mockito.verify(jdbcTemplate, Mockito.atLeastOnce()).queryForObject(
+            Mockito.anyString(),
+            Mockito.eq(Int::class.java),
+            Mockito.eq("BTC"),
+            Mockito.any()
+        )
+        Mockito.verify(jdbcTemplate, Mockito.atLeastOnce()).update(
+            Mockito.anyString(),
+            Mockito.eq("BTC"),
+            Mockito.eq("USD"),
+            Mockito.eq(1.0),
+            Mockito.eq(2.0),
+            Mockito.eq(0.5),
+            Mockito.eq(1.5),
+            Mockito.eq(100.0),
+            Mockito.eq(150.0),
+            Mockito.any()
+        )
+    }
+
 }

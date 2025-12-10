@@ -83,4 +83,81 @@ class CryptoControllerTest {
 
         assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.statusCode)
     }
+
+    @Test
+    fun `should fetch and store historical data by date successfully`() {
+        doNothing().`when`(cryptoService).fetchAndStoreHistoricalDataByDate(
+            "BTC", "USD", "2025-10-01", "2025-10-31"
+        )
+
+        val response = cryptoController.fetchAndStoreHistoricalDataByDate(
+            "BTC", "USD", "2025-10-01", "2025-10-31"
+        )
+
+        assertEquals(HttpStatus.OK, response.statusCode)
+        assertEquals(
+            "Historical data for BTC-USD from 2025-10-01 to 2025-10-31 successfully stored!",
+            response.body
+        )
+    }
+
+    @Test
+    fun `should handle error while storing historical data by date`() {
+        doThrow(RuntimeException("Mocked exception"))
+            .`when`(cryptoService).fetchAndStoreHistoricalDataByDate(
+                "BTC", "USD", "2025-10-01", "2025-10-31"
+            )
+
+        val response = cryptoController.fetchAndStoreHistoricalDataByDate(
+            "BTC", "USD", "2025-10-01", "2025-10-31"
+        )
+
+        assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.statusCode)
+        assert(response.body!!.contains("Error storing historical data: Mocked exception"))
+    }
+
+    @Test
+    fun `should return close price successfully`() {
+        // Arrange
+        `when`(
+            cryptoService.getClosePriceByDate("BTC", "USD", "2025-12-03")
+        ).thenReturn(50000.0)
+
+        // Act
+        val response = cryptoController.getPriceByDate(
+            symbol = "BTC",
+            date = "2025-12-03",
+            currency = "USD"
+        )
+
+        // Assert
+        assertEquals(HttpStatus.OK, response.statusCode)
+
+        val body = response.body as Map<*, *>
+        assertEquals("BTC", body["symbol"])
+        assertEquals("USD", body["currency"])
+        assertEquals("2025-12-03", body["date"])
+        assertEquals(50000.0, body["close"])
+    }
+
+    @Test
+    fun `should return 404 when close price not found`() {
+        // Arrange
+        `when`(
+            cryptoService.getClosePriceByDate("BTC", "USD", "2025-12-03")
+        ).thenReturn(null)
+
+        // Act
+        val response = cryptoController.getPriceByDate(
+            symbol = "BTC",
+            date = "2025-12-03",
+            currency = "USD"
+        )
+
+        // Assert
+        assertEquals(HttpStatus.NOT_FOUND, response.statusCode)
+        assertEquals("No price found", response.body)
+    }
+
+
 }

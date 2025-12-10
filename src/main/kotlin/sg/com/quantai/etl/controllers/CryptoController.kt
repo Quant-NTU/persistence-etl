@@ -33,6 +33,26 @@ class CryptoController(
     }
 
     /**
+     * Fetch and store historical cryptocurrency data by date
+     * Example Usage:
+     * POST /crypto/historical/store?symbol=BTC&currency=USD&startDate=2025-10-01&endDate=2025-10-31
+     */
+    @PostMapping("/historical/store-by-date")
+    fun fetchAndStoreHistoricalDataByDate(
+        @RequestParam symbol: String,
+        @RequestParam currency: String = "USD", //USD by default  
+        @RequestParam startDate: String,
+        @RequestParam endDate: String
+    ): ResponseEntity<String> {
+        return try {
+            cryptoService.fetchAndStoreHistoricalDataByDate(symbol, currency, startDate, endDate)
+            ResponseEntity.ok("Historical data for $symbol-$currency from $startDate to $endDate successfully stored!")
+        } catch (e: Exception) {
+            ResponseEntity.status(500).body("Error storing historical data: ${e.message}")
+        }
+    }
+
+    /**
      * Trigger data transformation
      */
     @PostMapping("/transform")
@@ -65,5 +85,27 @@ class CryptoController(
         } catch (e: Exception) {
             ResponseEntity.status(500).body("Error storing historical data for top symbols: ${e.message}")
         }
+    }
+
+    /**
+     * Fetch but not store historical data for the specified ticker
+     * Example Usage:
+     * GET /crypto/price-by-date
+     */
+    @GetMapping("/price-by-date")
+    fun getPriceByDate(
+        @RequestParam symbol: String,
+        @RequestParam date: String,
+        @RequestParam(defaultValue = "USD") currency: String
+    ): ResponseEntity<Any> {
+        val price = cryptoService.getClosePriceByDate(symbol, currency, date)
+            ?: return ResponseEntity.status(404).body("No price found")
+
+        return ResponseEntity.ok(mapOf(
+            "symbol" to symbol,
+            "currency" to currency,
+            "date" to date,
+            "close" to price
+        ))
     }
 }
