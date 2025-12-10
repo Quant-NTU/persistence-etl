@@ -86,4 +86,26 @@ class CryptoController(
             ResponseEntity.status(500).body("Error storing historical data for top symbols: ${e.message}")
         }
     }
+
+    /**
+     * Fetch but not store historical data for the specified ticker
+     * Example Usage:
+     * GET /crypto/price-by-date
+     */
+    @GetMapping("/price-by-date")
+    fun getPriceByDate(
+        @RequestParam symbol: String,
+        @RequestParam date: String,
+        @RequestParam(defaultValue = "USD") currency: String
+    ): ResponseEntity<Any> {
+        val price = cryptoService.getClosePriceByDate(symbol, currency, date)
+            ?: return ResponseEntity.status(404).body("No price found")
+
+        return ResponseEntity.ok(mapOf(
+            "symbol" to symbol,
+            "currency" to currency,
+            "date" to date,
+            "close" to price
+        ))
+    }
 }

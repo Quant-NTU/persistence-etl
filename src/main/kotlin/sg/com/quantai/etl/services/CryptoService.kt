@@ -202,6 +202,40 @@ class CryptoService(
         }
     }
 
+    fun getClosePriceByDate(symbol: String, currency: String, date: String): Double? {
+        return try {
+            val epoch = endDateToEpoch(date)
+
+            val response = webClient
+                .get()
+                .uri { uriBuilder ->
+                    uriBuilder
+                        .path("/data/v2/histoday")
+                        .queryParam("fsym", symbol)
+                        .queryParam("tsym", currency)
+                        .queryParam("toTs", epoch)
+                        .queryParam("limit", 1)
+                        .queryParam("api_key", apiKey)
+                        .build()
+                }
+                .retrieve()
+                .bodyToMono(String::class.java)
+                .block()
+
+            logger.info("Close price response: $response")
+
+            val json = objectMapper.readTree(response)
+            val close = json["Data"]?.get("Data")?.get(0)?.get("close")?.asDouble()
+
+            close
+        } catch (e: Exception) {
+            logger.error("Error fetching close price: ${e.message}")
+            null
+        }
+    }
+
+
+
     private fun checkIfDataExists(symbol: String, timestamp: Timestamp): Boolean {
         val sql = """
             SELECT COUNT(*) FROM raw_crypto_compare_crypto_data WHERE symbol = ? AND timestamp = ?

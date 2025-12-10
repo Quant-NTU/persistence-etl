@@ -116,4 +116,48 @@ class CryptoControllerTest {
         assert(response.body!!.contains("Error storing historical data: Mocked exception"))
     }
 
+    @Test
+    fun `should return close price successfully`() {
+        // Arrange
+        `when`(
+            cryptoService.getClosePriceByDate("BTC", "USD", "2025-12-03")
+        ).thenReturn(50000.0)
+
+        // Act
+        val response = cryptoController.getPriceByDate(
+            symbol = "BTC",
+            date = "2025-12-03",
+            currency = "USD"
+        )
+
+        // Assert
+        assertEquals(HttpStatus.OK, response.statusCode)
+
+        val body = response.body as Map<*, *>
+        assertEquals("BTC", body["symbol"])
+        assertEquals("USD", body["currency"])
+        assertEquals("2025-12-03", body["date"])
+        assertEquals(50000.0, body["close"])
+    }
+
+    @Test
+    fun `should return 404 when close price not found`() {
+        // Arrange
+        `when`(
+            cryptoService.getClosePriceByDate("BTC", "USD", "2025-12-03")
+        ).thenReturn(null)
+
+        // Act
+        val response = cryptoController.getPriceByDate(
+            symbol = "BTC",
+            date = "2025-12-03",
+            currency = "USD"
+        )
+
+        // Assert
+        assertEquals(HttpStatus.NOT_FOUND, response.statusCode)
+        assertEquals("No price found", response.body)
+    }
+
+
 }
