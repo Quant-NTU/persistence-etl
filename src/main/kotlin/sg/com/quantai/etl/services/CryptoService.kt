@@ -10,6 +10,8 @@ import org.springframework.stereotype.Service
 import org.springframework.web.reactive.function.client.WebClient
 import java.sql.Timestamp
 import java.time.Instant
+import java.time.LocalDate
+import java.time.temporal.ChronoUnit
 
 @Service
 class CryptoService(
@@ -88,7 +90,7 @@ class CryptoService(
         }
     }
 
-    private fun fetchHistoricalData(symbol: String, currency: String, limit: Int): JsonNode? {
+    fun fetchHistoricalData(symbol: String, currency: String, limit: Int): JsonNode? {
         try {
             logger.info("Fetching historical data for $symbol in $currency")
 
@@ -116,6 +118,65 @@ class CryptoService(
         }
     }
 
+    fun fetchAndStoreHistoricalDataByDate(symbol: String, currency: String, startDate: String, endDate: String) {
+        try {
+            logger.info("Fetching historical data for $symbol in $currency between $startDate and $endDate")
+
+            val start = LocalDate.parse(startDate)
+            val end = LocalDate.parse(endDate)
+            val daysBetween = ChronoUnit.DAYS.between(start, end).toInt()
+
+            val response = webClient
+                .get()
+                .uri { uriBuilder ->
+                    uriBuilder
+                        .path("/data/v2/histoday")
+                        .queryParam("fsym", symbol)
+                        .queryParam("tsym", currency)
+                        .queryParam("toTs", endDateToEpoch(endDate))
+                        .queryParam("limit", daysBetween)
+                        .queryParam("api_key", apiKey)
+                        .build()
+                }
+                .retrieve()
+                .bodyToMono(String::class.java)
+                .block()
+
+            val json = objectMapper.readTree(response)
+            val dataArray = json?.path("Data")?.path("Data")
+
+            if (dataArray == null || !dataArray.isArray || dataArray.isEmpty) {
+                logger.warn("No historical data found for $symbol between $startDate and $endDate")
+                return
+            }
+
+            dataArray.forEach { node ->
+                val timestamp = Timestamp.from(Instant.ofEpochSecond(node["time"].asLong()))
+                if (!checkIfDataExists(symbol, timestamp)) {
+                    insertHistoricalData(node, symbol, currency)
+                } else {
+                    logger.info("Data for $symbol at $timestamp already exists. Skipping.")
+                }
+            }
+
+            logger.info("✅ Successfully stored historical data for $symbol from $startDate to $endDate")
+
+        } catch (e: Exception) {
+            logger.error("Error fetching/storing historical data for $symbol-$currency by date range: ${e.message}")
+        }
+    }
+
+    private fun endDateToEpoch(endDate: String): Long {
+        return try {
+            val instant = Instant.parse("${endDate}T23:59:59Z")
+            instant.epochSecond
+        } catch (e: Exception) {
+            logger.warn("Invalid endDate format '$endDate', defaulting to current time")
+            Instant.now().epochSecond
+        }
+    }
+
+
     private fun insertHistoricalData(node: JsonNode, symbol: String, currency: String) {
         try {
             val timestamp = Timestamp.from(Instant.ofEpochSecond(node["time"].asLong()))
@@ -140,6 +201,40 @@ class CryptoService(
             logger.error("Failed to insert historical data for $symbol-$currency: ${e.message}")
         }
     }
+
+    fun getClosePriceByDate(symbol: String, currency: String, date: String): Double? {
+        return try {
+            val epoch = endDateToEpoch(date)
+
+            val response = webClient
+                .get()
+                .uri { uriBuilder ->
+                    uriBuilder
+                        .path("/data/v2/histoday")
+                        .queryParam("fsym", symbol)
+                        .queryParam("tsym", currency)
+                        .queryParam("toTs", epoch)
+                        .queryParam("limit", 1)
+                        .queryParam("api_key", apiKey)
+                        .build()
+                }
+                .retrieve()
+                .bodyToMono(String::class.java)
+                .block()
+
+            logger.info("Close price response: $response")
+
+            val json = objectMapper.readTree(response)
+            val close = json["Data"]?.get("Data")?.get(0)?.get("close")?.asDouble()
+
+            close
+        } catch (e: Exception) {
+            logger.error("Error fetching close price: ${e.message}")
+            null
+        }
+    }
+
+
 
     private fun checkIfDataExists(symbol: String, timestamp: Timestamp): Boolean {
         val sql = """
