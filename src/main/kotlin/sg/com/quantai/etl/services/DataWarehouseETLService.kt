@@ -6,6 +6,8 @@ import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
 
 @Service
 class DataWarehouseETLService(
@@ -13,42 +15,129 @@ class DataWarehouseETLService(
 ) {
 
     private val logger: Logger = LoggerFactory.getLogger(DataWarehouseETLService::class.java)
+    
+    companion object {
+        val VALID_ASSET_TYPES = listOf("STOCK", "FOREX", "CRYPTO")
+        val DATE_FORMATTER: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
+    }
 
     /**
      * Load all data from source tables into the data warehouse
      * This should be run initially to populate the warehouse
+     * 
+     * @param assetTypes List of asset types to load (null = all)
+     * @return Map containing load statistics
      */
     @Transactional
-    fun loadAllDataToWarehouse() {
+    fun loadAllDataToWarehouse(assetTypes: List<String>? = null): Map<String, Any> {
         logger.info("Starting full data warehouse load...")
+        val startTime = LocalDateTime.now()
+        val stats = mutableMapOf<String, Any>()
+        val recordCounts = mutableMapOf<String, Long>()
         
-        loadStockData()
-        loadForexData()
-        loadCryptoData()
-        refreshMaterializedViews()
+        val typesToLoad = if (assetTypes.isNullOrEmpty()) {
+            VALID_ASSET_TYPES
+        } else {
+            assetTypes.filter { it in VALID_ASSET_TYPES }
+        }
         
-        logger.info("Full data warehouse load completed.")
+        if (typesToLoad.contains("STOCK")) {
+            recordCounts["stock"] = loadStockData()
+        }
+        if (typesToLoad.contains("FOREX")) {
+            recordCounts["forex"] = loadForexData()
+        }
+        if (typesToLoad.contains("CRYPTO")) {
+            recordCounts["crypto"] = loadCryptoData()
+        }
+        
+        val viewStats = refreshMaterializedViewsInternal()
+        
+        val endTime = LocalDateTime.now()
+        val duration = java.time.Duration.between(startTime, endTime)
+        
+        stats["loadType"] = "full"
+        stats["assetTypesLoaded"] = typesToLoad
+        stats["recordCounts"] = recordCounts
+        stats["totalRecordsLoaded"] = recordCounts.values.sum()
+        stats["viewsRefreshed"] = viewStats
+        stats["startTime"] = startTime.format(DATE_FORMATTER)
+        stats["endTime"] = endTime.format(DATE_FORMATTER)
+        stats["durationSeconds"] = duration.seconds
+        stats["dateRange"] = getDataDateRange()
+        
+        logger.info("Full data warehouse load completed. Stats: $stats")
+        return stats
     }
 
     /**
-     * Incremental load - scheduled to run every hour
-     * Loads only recent data (last 2 hours) to keep warehouse up to date
+     * Scheduled incremental load - runs every hour with default parameters
      */
     @Scheduled(cron = "0 0 * * * *") // Every hour at minute 0
-    @Transactional
-    fun incrementalLoadToWarehouse() {
-        logger.info("Starting incremental data warehouse load...")
-        
-        loadStockDataIncremental()
-        loadForexDataIncremental()
-        loadCryptoDataIncremental()
-        refreshMaterializedViews()
-        
-        logger.info("Incremental data warehouse load completed.")
+    fun scheduledIncrementalLoad() {
+        incrementalLoadToWarehouse(null, 2)
     }
 
-    private fun loadStockData() {
+    /**
+     * Incremental load - can be called manually with custom parameters
+     * Loads only recent data to keep warehouse up to date
+     * 
+     * @param assetTypes List of asset types to load (null = all)
+     * @param hoursBack Number of hours to look back (default: 2)
+     * @return Map containing load statistics
+     */
+    @Transactional
+    fun incrementalLoadToWarehouse(assetTypes: List<String>? = null, hoursBack: Int = 2): Map<String, Any> {
+        logger.info("Starting incremental data warehouse load (${hoursBack} hours back)...")
+        val startTime = LocalDateTime.now()
+        val stats = mutableMapOf<String, Any>()
+        val recordCounts = mutableMapOf<String, Long>()
+        
+        val typesToLoad = if (assetTypes.isNullOrEmpty()) {
+            VALID_ASSET_TYPES
+        } else {
+            assetTypes.filter { it in VALID_ASSET_TYPES }
+        }
+        
+        val cutoffTime = LocalDateTime.now().minusHours(hoursBack.toLong())
+        
+        if (typesToLoad.contains("STOCK")) {
+            recordCounts["stock"] = loadStockDataIncremental(hoursBack)
+        }
+        if (typesToLoad.contains("FOREX")) {
+            recordCounts["forex"] = loadForexDataIncremental(hoursBack)
+        }
+        if (typesToLoad.contains("CRYPTO")) {
+            recordCounts["crypto"] = loadCryptoDataIncremental(hoursBack)
+        }
+        
+        val viewStats = refreshMaterializedViewsInternal()
+        
+        val endTime = LocalDateTime.now()
+        val duration = java.time.Duration.between(startTime, endTime)
+        
+        stats["loadType"] = "incremental"
+        stats["assetTypesLoaded"] = typesToLoad
+        stats["recordCounts"] = recordCounts
+        stats["totalRecordsLoaded"] = recordCounts.values.sum()
+        stats["viewsRefreshed"] = viewStats
+        stats["hoursBack"] = hoursBack
+        stats["dataFromTime"] = cutoffTime.format(DATE_FORMATTER)
+        stats["startTime"] = startTime.format(DATE_FORMATTER)
+        stats["endTime"] = endTime.format(DATE_FORMATTER)
+        stats["durationSeconds"] = duration.seconds
+        
+        logger.info("Incremental data warehouse load completed. Stats: $stats")
+        return stats
+    }
+
+    private fun loadStockData(): Long {
         logger.info("Loading stock data into data warehouse...")
+        
+        val countBefore = jdbcTemplate.queryForObject(
+            "SELECT COUNT(*) FROM fact_ohlc_data WHERE asset_type_id = (SELECT asset_type_id FROM dim_asset_type WHERE asset_type_code = 'STOCK')",
+            Long::class.java
+        ) ?: 0L
         
         // Ensure symbols exist in dimension table
         jdbcTemplate.execute("""
@@ -87,17 +176,25 @@ class DataWarehouseETLService(
             ON CONFLICT DO NOTHING;
         """)
         
-        val count = jdbcTemplate.queryForObject(
+        val countAfter = jdbcTemplate.queryForObject(
             "SELECT COUNT(*) FROM fact_ohlc_data WHERE asset_type_id = (SELECT asset_type_id FROM dim_asset_type WHERE asset_type_code = 'STOCK')",
-            Int::class.java
-        )
-        logger.info("Loaded $count stock records into data warehouse.")
+            Long::class.java
+        ) ?: 0L
+        
+        val recordsLoaded = countAfter - countBefore
+        logger.info("Loaded $recordsLoaded new stock records into data warehouse (total: $countAfter).")
+        return recordsLoaded
     }
 
-    private fun loadStockDataIncremental() {
-        logger.info("Loading incremental stock data...")
+    private fun loadStockDataIncremental(hoursBack: Int = 2): Long {
+        logger.info("Loading incremental stock data (last $hoursBack hours)...")
         
-        // Load only recent data (last 2 hours)
+        val countBefore = jdbcTemplate.queryForObject(
+            "SELECT COUNT(*) FROM fact_ohlc_data WHERE asset_type_id = (SELECT asset_type_id FROM dim_asset_type WHERE asset_type_code = 'STOCK')",
+            Long::class.java
+        ) ?: 0L
+        
+        // Load only recent data
         jdbcTemplate.execute("""
             INSERT INTO dim_symbol (symbol_code, asset_type_id, symbol_name, is_active)
             SELECT DISTINCT 
@@ -106,7 +203,7 @@ class DataWarehouseETLService(
                 ts.symbol,
                 true
             FROM transformed_stock_data ts
-            WHERE ts.timestamp > NOW() - INTERVAL '2 hours'
+            WHERE ts.timestamp > NOW() - INTERVAL '$hoursBack hours'
             ON CONFLICT (symbol_code, asset_type_id) DO NOTHING;
         """)
         
@@ -131,13 +228,27 @@ class DataWarehouseETLService(
             JOIN dim_symbol ds ON ts.symbol = ds.symbol_code 
                 AND ds.asset_type_id = (SELECT asset_type_id FROM dim_asset_type WHERE asset_type_code = 'STOCK')
             JOIN dim_time_interval dti ON ts.interval = dti.interval_code
-            WHERE ts.timestamp > NOW() - INTERVAL '2 hours'
+            WHERE ts.timestamp > NOW() - INTERVAL '$hoursBack hours'
             ON CONFLICT DO NOTHING;
         """)
+        
+        val countAfter = jdbcTemplate.queryForObject(
+            "SELECT COUNT(*) FROM fact_ohlc_data WHERE asset_type_id = (SELECT asset_type_id FROM dim_asset_type WHERE asset_type_code = 'STOCK')",
+            Long::class.java
+        ) ?: 0L
+        
+        val recordsLoaded = countAfter - countBefore
+        logger.info("Loaded $recordsLoaded new stock records (incremental).")
+        return recordsLoaded
     }
 
-    private fun loadForexData() {
+    private fun loadForexData(): Long {
         logger.info("Loading forex data into data warehouse...")
+        
+        val countBefore = jdbcTemplate.queryForObject(
+            "SELECT COUNT(*) FROM fact_ohlc_data WHERE asset_type_id = (SELECT asset_type_id FROM dim_asset_type WHERE asset_type_code = 'FOREX')",
+            Long::class.java
+        ) ?: 0L
         
         // Ensure currency pairs exist in dimension table
         jdbcTemplate.execute("""
@@ -175,15 +286,23 @@ class DataWarehouseETLService(
             ON CONFLICT DO NOTHING;
         """)
         
-        val count = jdbcTemplate.queryForObject(
+        val countAfter = jdbcTemplate.queryForObject(
             "SELECT COUNT(*) FROM fact_ohlc_data WHERE asset_type_id = (SELECT asset_type_id FROM dim_asset_type WHERE asset_type_code = 'FOREX')",
-            Int::class.java
-        )
-        logger.info("Loaded $count forex records into data warehouse.")
+            Long::class.java
+        ) ?: 0L
+        
+        val recordsLoaded = countAfter - countBefore
+        logger.info("Loaded $recordsLoaded new forex records into data warehouse (total: $countAfter).")
+        return recordsLoaded
     }
 
-    private fun loadForexDataIncremental() {
-        logger.info("Loading incremental forex data...")
+    private fun loadForexDataIncremental(hoursBack: Int = 2): Long {
+        logger.info("Loading incremental forex data (last $hoursBack hours)...")
+        
+        val countBefore = jdbcTemplate.queryForObject(
+            "SELECT COUNT(*) FROM fact_ohlc_data WHERE asset_type_id = (SELECT asset_type_id FROM dim_asset_type WHERE asset_type_code = 'FOREX')",
+            Long::class.java
+        ) ?: 0L
         
         jdbcTemplate.execute("""
             INSERT INTO dim_symbol (symbol_code, asset_type_id, symbol_name, is_active)
@@ -193,7 +312,7 @@ class DataWarehouseETLService(
                 tf.currency_pair,
                 true
             FROM transformed_forex_data tf
-            WHERE tf.timestamp > NOW() - INTERVAL '2 hours'
+            WHERE tf.timestamp > NOW() - INTERVAL '$hoursBack hours'
             ON CONFLICT (symbol_code, asset_type_id) DO NOTHING;
         """)
         
@@ -217,13 +336,27 @@ class DataWarehouseETLService(
             JOIN dim_symbol ds ON tf.currency_pair = ds.symbol_code 
                 AND ds.asset_type_id = (SELECT asset_type_id FROM dim_asset_type WHERE asset_type_code = 'FOREX')
             JOIN dim_time_interval dti ON tf.interval = dti.interval_code
-            WHERE tf.timestamp > NOW() - INTERVAL '2 hours'
+            WHERE tf.timestamp > NOW() - INTERVAL '$hoursBack hours'
             ON CONFLICT DO NOTHING;
         """)
+        
+        val countAfter = jdbcTemplate.queryForObject(
+            "SELECT COUNT(*) FROM fact_ohlc_data WHERE asset_type_id = (SELECT asset_type_id FROM dim_asset_type WHERE asset_type_code = 'FOREX')",
+            Long::class.java
+        ) ?: 0L
+        
+        val recordsLoaded = countAfter - countBefore
+        logger.info("Loaded $recordsLoaded new forex records (incremental).")
+        return recordsLoaded
     }
 
-    private fun loadCryptoData() {
+    private fun loadCryptoData(): Long {
         logger.info("Loading crypto data into data warehouse...")
+        
+        val countBefore = jdbcTemplate.queryForObject(
+            "SELECT COUNT(*) FROM fact_ohlc_data WHERE asset_type_id = (SELECT asset_type_id FROM dim_asset_type WHERE asset_type_code = 'CRYPTO')",
+            Long::class.java
+        ) ?: 0L
         
         // Ensure crypto symbols exist in dimension table
         jdbcTemplate.execute("""
@@ -266,15 +399,23 @@ class DataWarehouseETLService(
             ON CONFLICT DO NOTHING;
         """)
         
-        val count = jdbcTemplate.queryForObject(
+        val countAfter = jdbcTemplate.queryForObject(
             "SELECT COUNT(*) FROM fact_ohlc_data WHERE asset_type_id = (SELECT asset_type_id FROM dim_asset_type WHERE asset_type_code = 'CRYPTO')",
-            Int::class.java
-        )
-        logger.info("Loaded $count crypto records into data warehouse.")
+            Long::class.java
+        ) ?: 0L
+        
+        val recordsLoaded = countAfter - countBefore
+        logger.info("Loaded $recordsLoaded new crypto records into data warehouse (total: $countAfter).")
+        return recordsLoaded
     }
 
-    private fun loadCryptoDataIncremental() {
-        logger.info("Loading incremental crypto data...")
+    private fun loadCryptoDataIncremental(hoursBack: Int = 2): Long {
+        logger.info("Loading incremental crypto data (last $hoursBack hours)...")
+        
+        val countBefore = jdbcTemplate.queryForObject(
+            "SELECT COUNT(*) FROM fact_ohlc_data WHERE asset_type_id = (SELECT asset_type_id FROM dim_asset_type WHERE asset_type_code = 'CRYPTO')",
+            Long::class.java
+        ) ?: 0L
         
         jdbcTemplate.execute("""
             INSERT INTO dim_symbol (symbol_code, asset_type_id, symbol_name, currency, is_active)
@@ -285,7 +426,7 @@ class DataWarehouseETLService(
                 tc.currency,
                 true
             FROM transformed_crypto_data tc
-            WHERE tc.timestamp > NOW() - INTERVAL '2 hours'
+            WHERE tc.timestamp > NOW() - INTERVAL '$hoursBack hours'
             ON CONFLICT (symbol_code, asset_type_id) DO NOTHING;
         """)
         
@@ -312,64 +453,97 @@ class DataWarehouseETLService(
             FROM transformed_crypto_data tc
             JOIN dim_symbol ds ON tc.symbol = ds.symbol_code 
                 AND ds.asset_type_id = (SELECT asset_type_id FROM dim_asset_type WHERE asset_type_code = 'CRYPTO')
-            WHERE tc.timestamp > NOW() - INTERVAL '2 hours'
+            WHERE tc.timestamp > NOW() - INTERVAL '$hoursBack hours'
             ON CONFLICT DO NOTHING;
         """)
+        
+        val countAfter = jdbcTemplate.queryForObject(
+            "SELECT COUNT(*) FROM fact_ohlc_data WHERE asset_type_id = (SELECT asset_type_id FROM dim_asset_type WHERE asset_type_code = 'CRYPTO')",
+            Long::class.java
+        ) ?: 0L
+        
+        val recordsLoaded = countAfter - countBefore
+        logger.info("Loaded $recordsLoaded new crypto records (incremental).")
+        return recordsLoaded
     }
 
     /**
-     * Refresh all materialized views
+     * Refresh all materialized views (public interface)
      * This is scheduled to run every 30 minutes
      */
     @Scheduled(cron = "0 */30 * * * *") // Every 30 minutes
-    fun refreshMaterializedViews() {
+    fun refreshMaterializedViews(): Map<String, Any> {
+        return refreshMaterializedViewsInternal()
+    }
+    
+    /**
+     * Internal method to refresh materialized views and return stats
+     */
+    private fun refreshMaterializedViewsInternal(): Map<String, Any> {
         logger.info("Refreshing materialized views...")
+        val startTime = LocalDateTime.now()
         
+        val viewStats = mutableMapOf<String, String>()
         val errors = mutableListOf<String>()
         
-        try {
-            jdbcTemplate.execute("REFRESH MATERIALIZED VIEW CONCURRENTLY mv_daily_ohlc_summary;")
-            logger.info("Refreshed 'mv_daily_ohlc_summary'")
-        } catch (e: Exception) {
-            val errorMsg = "Failed to refresh mv_daily_ohlc_summary: ${e.message}"
-            logger.error(errorMsg, e)
-            errors.add(errorMsg)
+        val views = listOf(
+            "mv_daily_ohlc_summary",
+            "mv_hourly_ohlc_summary",
+            "mv_asset_type_summary",
+            "mv_symbol_analytics"
+        )
+        
+        for (viewName in views) {
+            try {
+                jdbcTemplate.execute("REFRESH MATERIALIZED VIEW CONCURRENTLY $viewName;")
+                viewStats[viewName] = "refreshed"
+                logger.info("Refreshed '$viewName'")
+            } catch (e: Exception) {
+                val errorMsg = "Failed to refresh $viewName: ${e.message}"
+                logger.error(errorMsg, e)
+                viewStats[viewName] = "error: ${e.message}"
+                errors.add(errorMsg)
+            }
         }
         
-        try {
-            jdbcTemplate.execute("REFRESH MATERIALIZED VIEW CONCURRENTLY mv_hourly_ohlc_summary;")
-            logger.info("Refreshed 'mv_hourly_ohlc_summary'")
-        } catch (e: Exception) {
-            val errorMsg = "Failed to refresh mv_hourly_ohlc_summary: ${e.message}"
-            logger.error(errorMsg, e)
-            errors.add(errorMsg)
-        }
+        val endTime = LocalDateTime.now()
+        val duration = java.time.Duration.between(startTime, endTime)
         
-        try {
-            jdbcTemplate.execute("REFRESH MATERIALIZED VIEW CONCURRENTLY mv_asset_type_summary;")
-            logger.info("Refreshed 'mv_asset_type_summary'")
-        } catch (e: Exception) {
-            val errorMsg = "Failed to refresh mv_asset_type_summary: ${e.message}"
-            logger.error(errorMsg, e)
-            errors.add(errorMsg)
-        }
-        
-        try {
-            jdbcTemplate.execute("REFRESH MATERIALIZED VIEW CONCURRENTLY mv_symbol_analytics;")
-            logger.info("Refreshed 'mv_symbol_analytics'")
-        } catch (e: Exception) {
-            val errorMsg = "Failed to refresh mv_symbol_analytics: ${e.message}"
-            logger.error(errorMsg, e)
-            errors.add(errorMsg)
-        }
+        val result = mutableMapOf<String, Any>(
+            "viewsProcessed" to views.size,
+            "viewsRefreshed" to viewStats.count { it.value == "refreshed" },
+            "viewsWithErrors" to errors.size,
+            "details" to viewStats,
+            "durationSeconds" to duration.seconds
+        )
         
         if (errors.isNotEmpty()) {
-            val errorSummary = "Materialized views refresh completed with ${errors.size} error(s): ${errors.joinToString("; ")}"
+            result["errors"] = errors
+            val errorSummary = "Materialized views refresh completed with ${errors.size} error(s)"
             logger.error(errorSummary)
-            throw RuntimeException(errorSummary)
+        } else {
+            logger.info("Materialized views refresh completed successfully.")
         }
         
-        logger.info("Materialized views refresh completed successfully.")
+        return result
+    }
+    
+    /**
+     * Get the date range of data in the warehouse
+     */
+    private fun getDataDateRange(): Map<String, String?> {
+        return try {
+            val result = jdbcTemplate.queryForMap(
+                "SELECT MIN(timestamp) as earliest, MAX(timestamp) as latest FROM fact_ohlc_data"
+            )
+            mapOf(
+                "earliest" to (result["earliest"] as? java.sql.Timestamp)?.toLocalDateTime()?.format(DATE_FORMATTER),
+                "latest" to (result["latest"] as? java.sql.Timestamp)?.toLocalDateTime()?.format(DATE_FORMATTER)
+            )
+        } catch (e: Exception) {
+            logger.error("Error getting date range: ${e.message}")
+            mapOf("earliest" to null, "latest" to null)
+        }
     }
 
     /**
