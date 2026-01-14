@@ -32,6 +32,9 @@ class DataWarehouseInitializer(val jdbcTemplate: JdbcTemplate) {
 
             // Setup continuous aggregates and refresh policies
             setupContinuousAggregates()
+            
+            // Create aggregate views for middleware analytics
+            createAnalyticsAggregateViews()
 
             logger.info("Data warehouse schema initialization completed successfully.")
         }
@@ -393,5 +396,98 @@ class DataWarehouseInitializer(val jdbcTemplate: JdbcTemplate) {
         }
 
         logger.info("Continuous aggregates setup completed.")
+    }
+    
+    private fun createAnalyticsAggregateViews() {
+        logger.info("Creating analytics aggregate views for middleware...")
+
+        try {
+            // Daily aggregate view - used by middleware analytics
+            jdbcTemplate.execute("""
+                CREATE OR REPLACE VIEW ohlc_1day_aggregate AS
+                SELECT 
+                    ds.symbol_id,
+                    mv.trading_day as bucket,
+                    COALESCE(mv.total_volume, 0) as total_volume,
+                    COALESCE(mv.total_volume / NULLIF(mv.record_count, 0), 0) as avg_volume,
+                    COALESCE(mv.total_volume, 0) as max_volume,
+                    0::numeric as min_volume,
+                    COALESCE(mv.day_open, 0) as first_open,
+                    COALESCE(mv.day_close, 0) as last_close,
+                    COALESCE(mv.day_high, 0) as max_high,
+                    COALESCE(mv.day_low, 0) as min_low,
+                    COALESCE(mv.avg_close_price, 0) as avg_close,
+                    COALESCE(
+                        CASE 
+                            WHEN mv.day_low > 0 THEN (mv.day_high - mv.day_low) / mv.day_low * 100 
+                            ELSE 0 
+                        END, 0
+                    ) as volatility,
+                    COALESCE(mv.record_count, 0) as record_count
+                FROM mv_daily_ohlc_summary mv
+                JOIN dim_symbol ds ON mv.symbol_code = ds.symbol_code;
+            """)
+            logger.info("View 'ohlc_1day_aggregate' created.")
+
+            // Hourly aggregate view - used by middleware analytics
+            jdbcTemplate.execute("""
+                CREATE OR REPLACE VIEW ohlc_1hour_aggregate AS
+                SELECT 
+                    ds.symbol_id,
+                    mv.trading_day as bucket,
+                    COALESCE(mv.total_volume, 0) as total_volume,
+                    COALESCE(mv.total_volume / NULLIF(mv.record_count, 0), 0) as avg_volume,
+                    COALESCE(mv.total_volume, 0) as max_volume,
+                    0::numeric as min_volume,
+                    COALESCE(mv.day_open, 0) as first_open,
+                    COALESCE(mv.day_close, 0) as last_close,
+                    COALESCE(mv.day_high, 0) as max_high,
+                    COALESCE(mv.day_low, 0) as min_low,
+                    COALESCE(mv.avg_close_price, 0) as avg_close,
+                    COALESCE(
+                        CASE 
+                            WHEN mv.day_low > 0 THEN (mv.day_high - mv.day_low) / mv.day_low * 100 
+                            ELSE 0 
+                        END, 0
+                    ) as volatility,
+                    COALESCE(mv.record_count, 0) as record_count
+                FROM mv_daily_ohlc_summary mv
+                JOIN dim_symbol ds ON mv.symbol_code = ds.symbol_code;
+            """)
+            logger.info("View 'ohlc_1hour_aggregate' created.")
+
+            // Weekly aggregate view - used by middleware analytics
+            jdbcTemplate.execute("""
+                CREATE OR REPLACE VIEW ohlc_7day_aggregate AS
+                SELECT 
+                    ds.symbol_id,
+                    date_trunc('week', mv.trading_day) as bucket,
+                    COALESCE(SUM(mv.total_volume), 0) as total_volume,
+                    COALESCE(AVG(mv.total_volume), 0) as avg_volume,
+                    COALESCE(MAX(mv.total_volume), 0) as max_volume,
+                    COALESCE(MIN(mv.total_volume), 0) as min_volume,
+                    COALESCE(MIN(mv.day_open), 0) as first_open,
+                    COALESCE(MAX(mv.day_close), 0) as last_close,
+                    COALESCE(MAX(mv.day_high), 0) as max_high,
+                    COALESCE(MIN(mv.day_low), 0) as min_low,
+                    COALESCE(AVG(mv.avg_close_price), 0) as avg_close,
+                    COALESCE(
+                        CASE 
+                            WHEN MIN(mv.day_low) > 0 THEN (MAX(mv.day_high) - MIN(mv.day_low)) / MIN(mv.day_low) * 100 
+                            ELSE 0 
+                        END, 0
+                    ) as volatility,
+                    COALESCE(SUM(mv.record_count), 0) as record_count
+                FROM mv_daily_ohlc_summary mv
+                JOIN dim_symbol ds ON mv.symbol_code = ds.symbol_code
+                GROUP BY ds.symbol_id, date_trunc('week', mv.trading_day);
+            """)
+            logger.info("View 'ohlc_7day_aggregate' created.")
+
+            logger.info("Analytics aggregate views created successfully.")
+        } catch (e: Exception) {
+            logger.warn("Could not create analytics aggregate views: ${e.message}")
+            logger.info("Views may already exist or materialized views may not be populated yet.")
+        }
     }
 }
