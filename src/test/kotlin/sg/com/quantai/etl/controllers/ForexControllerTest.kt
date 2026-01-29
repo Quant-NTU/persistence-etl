@@ -91,5 +91,64 @@ class ForexControllerTest {
         assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.statusCode)
         assertEquals("Error during forex data transformation: Database error", response.body)
     }
+
+    @Test
+    fun `should fetch and store historical forex data by date successfully`() {
+        // Arrange
+        `when`(forexService.getSupportedIntervals())
+            .thenReturn(listOf("1min", "5min", "15min", "1h", "4h", "1day"))
+
+        doNothing().`when`(forexService).fetchAndStoreHistoricalDataByDate(
+            currencyPair = "EUR/USD",
+            interval = "1day",
+            startDate = "2025-10-01",
+            endDate = "2025-10-31"
+        )
+
+        // Act
+        val response = controller.fetchAndStoreHistoricalDataByDate(
+            currencyPair = "EUR/USD",
+            startDate = "2025-10-01",
+            endDate = "2025-10-31",
+            interval = "1day"
+        )
+
+        // Assert
+        assertEquals(HttpStatus.OK, response.statusCode)
+        assertEquals(
+            "Historical data for EUR/USD (interval=1day) from 2025-10-01 to 2025-10-31 successfully stored!",
+            response.body
+        )
+    }
+
+    @Test
+    fun `fetchAndStoreHistoricalDataByDate returns INTERNAL_SERVER_ERROR on exception`() {
+        // Arrange
+        `when`(forexService.getSupportedIntervals())
+            .thenReturn(listOf("1min", "5min", "15min", "1h", "4h", "1day"))
+
+        `when`(
+            forexService.fetchAndStoreHistoricalDataByDate(
+                currencyPair = "EUR/USD",
+                interval = "1day",
+                startDate = "2025-10-01",
+                endDate = "2025-10-31"
+            )
+        ).thenThrow(RuntimeException("Mocked exception"))
+
+        // Act
+        val response = controller.fetchAndStoreHistoricalDataByDate(
+            currencyPair = "EUR/USD",
+            startDate = "2025-10-01",
+            endDate = "2025-10-31",
+            interval = "1day"
+        )
+
+        // Assert
+        assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.statusCode)
+        assert(response.body!!.contains("Error storing historical data for EUR/USD: Mocked exception"))
+    }
+
+
 }
 
