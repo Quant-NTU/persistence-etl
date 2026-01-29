@@ -11,6 +11,9 @@ import org.springframework.web.reactive.function.client.WebClient
 import java.sql.Timestamp
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
+import java.time.LocalDate
+import java.time.LocalTime
+
 
 data class StockDataRecord(
     val symbol: String,
@@ -119,6 +122,8 @@ class StockService(
             return null
         }
     }
+
+    
 
     private fun batchInsertHistoricalData(batchData: List<StockDataRecord>) {
         try {
@@ -233,4 +238,110 @@ class StockService(
             }
         }
     }
+
+    private fun fetchHistoricalDataByDate(
+        symbol: String,
+        interval: String,
+        startDate: LocalDate,
+        endDate: LocalDate
+    ): JsonNode? {
+
+        return try {
+            val response = webClient
+                .get()
+                .uri { uriBuilder ->
+                    uriBuilder
+                        .path("/time_series")
+                        .queryParam("symbol", symbol)
+                        .queryParam("interval", interval)
+                        .queryParam("start_date", formatDateForApi(startDate, interval, isStart = true))
+                        .queryParam("end_date", formatDateForApi(endDate, interval, isStart = false))
+                        .queryParam("apikey", apiKey)
+                        .build()
+                }
+                .retrieve()
+                .bodyToMono(String::class.java)
+                .block()
+
+            objectMapper.readTree(response)
+
+        } catch (e: Exception) {
+            logger.error("Error fetching historical data: ${e.message}")
+            null
+        }
+    }
+
+
+    fun fetchAndStoreHistoricalDataByDate(
+        symbol: String,
+        interval: String,
+        startDate: String,
+        endDate: String
+    ) {
+        try {
+            logger.info("Fetching $interval data for $symbol between $startDate and $endDate")
+
+            val start = LocalDate.parse(startDate)
+            val end = LocalDate.parse(endDate)
+
+            val historicalData = fetchHistoricalDataByDate(
+                symbol = symbol,
+                interval = interval,
+                startDate = start,
+                endDate = end
+            )
+
+            if (historicalData == null || !historicalData.has("values")) {
+                logger.warn("No data returned for $symbol")
+                return
+            }
+
+            val batchData = mutableListOf<StockDataRecord>()
+
+            historicalData["values"].forEach { node ->
+                val timestamp = parseTimestamp(node["datetime"].asText(), interval)
+                val (startDt, endDt) = calculateKLineInterval(timestamp, interval)
+
+                batchData.add(
+                    StockDataRecord(
+                        symbol = symbol,
+                        interval = interval,
+                        open = node["open"].asDouble(),
+                        high = node["high"].asDouble(),
+                        low = node["low"].asDouble(),
+                        close = node["close"].asDouble(),
+                        volume = node["volume"].asLong(),
+                        startDateTime = startDt,
+                        endDateTime = endDt,
+                        timestamp = timestamp
+                    )
+                )
+            }
+
+            batchInsertHistoricalData(batchData)
+
+        } catch (e: Exception) {
+            logger.error("Failed fetching data for $symbol: ${e.message}")
+        }
+    }
+
+
+    private fun formatDateForApi(
+        date: LocalDate,
+        interval: String,
+        isStart: Boolean
+    ): String {
+
+        return if (interval.contains("min") || interval.contains("h")) {
+            // Intraday requires datetime
+            val time = if (isStart) LocalTime.MIN else LocalTime.MAX
+            LocalDateTime.of(date, time)
+                .format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
+        } else {
+            // Daily and above
+            date.format(DateTimeFormatter.ISO_LOCAL_DATE)
+        }
+    }
+
+
 }

@@ -91,5 +91,44 @@ class StockControllerTest {
         assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.statusCode)
         assertEquals("Error during stock data transformation: Database error", response.body)
     }
+
+    @Test
+    fun `should fetch and store stock historical data by date successfully`() {
+        // Arrange
+        doNothing().`when`(stockService).fetchAndStoreHistoricalDataByDate(
+            "AAPL", "2025-10-01", "2025-10-31"
+        )
+
+        // Act
+        val response = controller.fetchAndStoreHistoricalDataByDate(
+            "AAPL", "2025-10-01", "2025-10-31"
+        )
+
+        // Assert
+        assertEquals(HttpStatus.OK, response.statusCode)
+        assertEquals(
+            "Historical data for AAPL from 2025-10-01 to 2025-10-31 successfully stored!",
+            response.body
+        )
+    }
+
+    @Test
+    fun `should handle error while storing stock historical data by date`() {
+        // Arrange
+        doThrow(RuntimeException("Mocked exception"))
+            .`when`(stockService).fetchAndStoreHistoricalDataByDate(
+                "AAPL", "2025-10-01", "2025-10-31"
+            )
+
+        // Act
+        val response = controller.fetchAndStoreHistoricalDataByDate(
+            "AAPL", "2025-10-01", "2025-10-31"
+        )
+
+        // Assert
+        assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.statusCode)
+        assert(response.body!!.contains("Error storing historical data"))
+    }
+
 }
 

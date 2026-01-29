@@ -52,6 +52,37 @@ class StockController(
         }
     }
 
+    @PostMapping("/historical/store-by-date")
+    fun fetchAndStoreHistoricalDataByDate(
+        @RequestParam symbol: String,
+        @RequestParam startDate: String,
+        @RequestParam endDate: String,
+        @RequestParam(defaultValue = "1day") interval: String
+    ): ResponseEntity<String> {
+        return try {
+            val supportedIntervals = stockService.getSupportedIntervals()
+            if (!supportedIntervals.contains(interval)) {
+                return ResponseEntity.badRequest()
+                    .body("Unsupported interval: $interval. Supported intervals: ${supportedIntervals.joinToString(", ")}")
+            }
+
+            stockService.fetchAndStoreHistoricalDataByDate(
+                symbol = symbol,
+                interval = interval,
+                startDate = startDate,
+                endDate = endDate
+            )
+
+            ResponseEntity.ok(
+                "Historical data for $symbol (interval=$interval) from $startDate to $endDate successfully stored!"
+            )
+        } catch (e: Exception) {
+            ResponseEntity.internalServerError()
+                .body("Error storing historical data for $symbol: ${e.message}")
+        }
+    }
+
+
     @PostMapping("/transform")
     fun triggerDataTransformation(): ResponseEntity<String> {
         return try {

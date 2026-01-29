@@ -98,5 +98,51 @@ class StockServiceTest {
             Mockito.anyList()
         )
     }
+
+    @Test
+    fun `should fetch and store stock historical data by date successfully`() {
+        // Mock batch insert
+        Mockito.`when`(
+            jdbcTemplate.batchUpdate(
+                Mockito.anyString(),
+                Mockito.anyList()
+            )
+        ).thenReturn(intArrayOf(1))
+
+        // Call method
+        stockService.fetchAndStoreHistoricalDataByDate(
+            "AAPL",
+            "2024-01-01",
+            "2024-01-31"
+        )
+
+        // Verify DB insert happened
+        Mockito.verify(jdbcTemplate, Mockito.atLeastOnce()).batchUpdate(
+            Mockito.anyString(),
+            Mockito.anyList()
+        )
+    }
+
+    @Test
+    fun `should throw exception when error occurs during stock historical fetch by date`() {
+        // Force DB failure
+        Mockito.`when`(
+            jdbcTemplate.batchUpdate(
+                Mockito.anyString(),
+                Mockito.anyList()
+            )
+        ).thenThrow(RuntimeException("DB error"))
+
+        val exception = org.junit.jupiter.api.assertThrows<RuntimeException> {
+            stockService.fetchAndStoreHistoricalDataByDate(
+                "AAPL",
+                "2024-01-01",
+                "2024-01-31"
+            )
+        }
+
+        assertEquals("DB error", exception.message)
+    }
+
 }
 
