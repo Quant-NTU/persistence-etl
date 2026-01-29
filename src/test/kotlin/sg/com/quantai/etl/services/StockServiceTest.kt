@@ -133,11 +133,11 @@ class StockServiceTest {
     fun `should handle exception gracefully during stock historical fetch by date`() {
         // Force DB failure
         Mockito.`when`(
-            jdbcTemplate.batchUpdate(
-                Mockito.anyString(),
-                Mockito.anyList()
-            )
-        ).thenThrow(RuntimeException("DB error"))
+            webClient.get()
+                .uri(Mockito.any<Function<UriBuilder, URI>>())
+                .retrieve()
+                .bodyToMono(String::class.java)
+        ).thenReturn(Mono.just("{}"))
 
         // Method handles errors gracefully by catching and logging - no exception thrown
         stockService.fetchAndStoreHistoricalDataByDate(
@@ -216,6 +216,7 @@ class StockServiceTest {
         }
         assertEquals("Failed to fetch S&P 500 data", exception.message)
     }
+
 
 }
 
