@@ -74,7 +74,7 @@ class StockController(
             )
 
             ResponseEntity.ok(
-                "Historical data for $symbol (interval=$interval) from $startDate to $endDate successfully stored!"
+                "Historical data for $symbol from $startDate to $endDate successfully stored!"
             )
         } catch (e: Exception) {
             ResponseEntity.internalServerError()

@@ -112,6 +112,7 @@ class StockServiceTest {
         // Call method
         stockService.fetchAndStoreHistoricalDataByDate(
             "AAPL",
+            "1day",
             "2024-01-01",
             "2024-01-31"
         )
@@ -124,25 +125,30 @@ class StockServiceTest {
     }
 
     @Test
-    fun `should throw exception when error occurs during stock historical fetch by date`() {
-        // Force DB failure
+    fun `should not store stock data by date when api returns no values`() {
+        // Arrange — override API response to return empty JSON (no "values" field)
         Mockito.`when`(
-            jdbcTemplate.batchUpdate(
-                Mockito.anyString(),
-                Mockito.anyList()
-            )
-        ).thenThrow(RuntimeException("DB error"))
+            webClient.get()
+                .uri(Mockito.any<Function<UriBuilder, URI>>())
+                .retrieve()
+                .bodyToMono(String::class.java)
+        ).thenReturn(Mono.just("{}"))
 
-        val exception = org.junit.jupiter.api.assertThrows<RuntimeException> {
-            stockService.fetchAndStoreHistoricalDataByDate(
-                "AAPL",
-                "2024-01-01",
-                "2024-01-31"
-            )
-        }
+        // Act
+        stockService.fetchAndStoreHistoricalDataByDate(
+            symbol = "AAPL",
+            interval = "1day",
+            startDate = "2024-01-01",
+            endDate = "2024-01-31"
+        )
 
-        assertEquals("DB error", exception.message)
+        // Assert: ensure no DB batch update happened
+        Mockito.verify(jdbcTemplate, Mockito.never()).batchUpdate(
+            Mockito.anyString(),
+            Mockito.anyList()
+        )
     }
+
 
 }
 

@@ -11,6 +11,9 @@ import org.springframework.web.reactive.function.client.WebClient
 import java.sql.Timestamp
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
+import java.time.LocalDate
+import java.time.LocalTime
+
 
 data class ForexDataRecord(
     val currencyPair: String,
@@ -238,4 +241,104 @@ class ForexService(
             }
         }
     }
+
+    private fun fetchHistoricalDataByDate(
+        currencyPair: String,
+        interval: String,
+        startDate: LocalDate,
+        endDate: LocalDate
+    ): JsonNode? {
+
+        return try {
+            val response = webClient
+                .get()
+                .uri { uriBuilder ->
+                    uriBuilder
+                        .path("/time_series")
+                        .queryParam("symbol", currencyPair)
+                        .queryParam("interval", interval)
+                        .queryParam("start_date", formatDateForApi(startDate, interval, isStart = true))
+                        .queryParam("end_date", formatDateForApi(endDate, interval, isStart = false))
+                        .queryParam("apikey", apiKey)
+                        .build()
+                }
+                .retrieve()
+                .bodyToMono(String::class.java)
+                .block()
+
+            objectMapper.readTree(response)
+
+        } catch (e: Exception) {
+            logger.error("Error fetching forex data by date for $currencyPair: ${e.message}")
+            null
+        }
+    }
+
+    fun fetchAndStoreHistoricalDataByDate(
+        currencyPair: String,
+        interval: String,
+        startDate: String,
+        endDate: String
+    ) {
+        try {
+            logger.info("Fetching $interval forex data for $currencyPair between $startDate and $endDate")
+
+            val start = LocalDate.parse(startDate)
+            val end = LocalDate.parse(endDate)
+
+            val historicalData = fetchHistoricalDataByDate(
+                currencyPair = currencyPair,
+                interval = interval,
+                startDate = start,
+                endDate = end
+            )
+
+            if (historicalData == null || !historicalData.has("values")) {
+                logger.warn("No data returned for $currencyPair")
+                return
+            }
+
+            val batchData = mutableListOf<ForexDataRecord>()
+
+            historicalData["values"].forEach { node ->
+                val timestamp = parseTimestamp(node["datetime"].asText(), interval)
+                val (startDt, endDt) = calculateKLineInterval(timestamp, interval)
+
+                batchData.add(
+                    ForexDataRecord(
+                        currencyPair = currencyPair,
+                        interval = interval,
+                        open = node["open"].asDouble(),
+                        high = node["high"].asDouble(),
+                        low = node["low"].asDouble(),
+                        close = node["close"].asDouble(),
+                        startDateTime = startDt,
+                        endDateTime = endDt,
+                        timestamp = timestamp
+                    )
+                )
+            }
+
+            batchInsertHistoricalData(batchData)
+
+        } catch (e: Exception) {
+            logger.error("Failed fetching forex data for $currencyPair: ${e.message}")
+        }
+    }
+
+    private fun formatDateForApi(
+        date: LocalDate,
+        interval: String,
+        isStart: Boolean
+    ): String {
+
+        return if (interval.contains("min") || interval.contains("h")) {
+            val time = if (isStart) LocalTime.MIN else LocalTime.MAX
+            LocalDateTime.of(date, time)
+                .format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
+        } else {
+            date.format(DateTimeFormatter.ISO_LOCAL_DATE)
+        }
+    }
+
 }

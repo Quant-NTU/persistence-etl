@@ -98,5 +98,56 @@ class ForexServiceTest {
             Mockito.anyList()
         )
     }
+
+    @Test
+    fun `should fetch and store forex historical data by date successfully`() {
+        // Arrange
+        Mockito.`when`(
+            jdbcTemplate.batchUpdate(
+                Mockito.anyString(),
+                Mockito.anyList()
+            )
+        ).thenReturn(intArrayOf(1))
+
+        // Act
+        forexService.fetchAndStoreHistoricalDataByDate(
+            currencyPair = "EUR/USD",
+            interval = "1day",
+            startDate = "2024-01-01",
+            endDate = "2024-01-31"
+        )
+
+        // Assert
+        Mockito.verify(jdbcTemplate, Mockito.times(1)).batchUpdate(
+            Mockito.anyString(),
+            Mockito.anyList()
+        )
+    }
+
+    @Test
+    fun `should not store forex data by date when api returns no values`() {
+        // Arrange — override API response to return empty JSON
+        Mockito.`when`(
+            webClient.get()
+                .uri(Mockito.any<Function<UriBuilder, URI>>())
+                .retrieve()
+                .bodyToMono(String::class.java)
+        ).thenReturn(Mono.just("{}"))
+
+        // Act
+        forexService.fetchAndStoreHistoricalDataByDate(
+            currencyPair = "EUR/USD",
+            interval = "1day",
+            startDate = "2024-01-01",
+            endDate = "2024-01-31"
+        )
+
+        // Assert
+        Mockito.verify(jdbcTemplate, Mockito.never()).batchUpdate(
+            Mockito.anyString(),
+            Mockito.anyList()
+        )
+    }
+
 }
 

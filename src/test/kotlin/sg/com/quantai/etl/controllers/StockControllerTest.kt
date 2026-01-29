@@ -93,15 +93,24 @@ class StockControllerTest {
     }
 
     @Test
-    fun `should fetch and store stock historical data by date successfully`() {
+    fun `should fetch and store historical stock data by date successfully`() {
         // Arrange
+        `when`(stockService.getSupportedIntervals())
+            .thenReturn(listOf("1min", "5min", "15min", "1h", "4h", "1day"))
+
         doNothing().`when`(stockService).fetchAndStoreHistoricalDataByDate(
-            "AAPL", "2025-10-01", "2025-10-31"
+            symbol = "AAPL",
+            interval = "1day",
+            startDate = "2025-10-01",
+            endDate = "2025-10-31"
         )
 
         // Act
         val response = controller.fetchAndStoreHistoricalDataByDate(
-            "AAPL", "2025-10-01", "2025-10-31"
+            symbol = "AAPL",
+            startDate = "2025-10-01",
+            endDate = "2025-10-31",
+            interval = "1day"
         )
 
         // Assert
@@ -113,22 +122,34 @@ class StockControllerTest {
     }
 
     @Test
-    fun `should handle error while storing stock historical data by date`() {
+    fun `fetchAndStoreHistoricalDataByDate returns INTERNAL_SERVER_ERROR on exception`() {
         // Arrange
-        doThrow(RuntimeException("Mocked exception"))
-            .`when`(stockService).fetchAndStoreHistoricalDataByDate(
-                "AAPL", "2025-10-01", "2025-10-31"
+        `when`(stockService.getSupportedIntervals())
+            .thenReturn(listOf("1min", "5min", "15min", "1h", "4h", "1day"))
+
+        `when`(
+            stockService.fetchAndStoreHistoricalDataByDate(
+                symbol = "AAPL",
+                interval = "1day",
+                startDate = "2025-10-01",
+                endDate = "2025-10-31"
             )
+        ).thenThrow(RuntimeException("Mocked exception"))
 
         // Act
         val response = controller.fetchAndStoreHistoricalDataByDate(
-            "AAPL", "2025-10-01", "2025-10-31"
+            symbol = "AAPL",
+            startDate = "2025-10-01",
+            endDate = "2025-10-31",
+            interval = "1day"
         )
 
         // Assert
         assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.statusCode)
-        assert(response.body!!.contains("Error storing historical data"))
+        assert(response.body!!.contains("Error storing historical data for AAPL"))
     }
+
+
 
 }
 
