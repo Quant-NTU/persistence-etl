@@ -98,28 +98,36 @@ class StockController(
         @RequestParam(defaultValue = "30") days: Int
     ): ResponseEntity<Map<String, Any>> {
         return try {
-            val effectiveDays = days.coerceIn(1, 365)  // Limit between 1 and 365 days
+            // Validate and coerce days parameter
+            val effectiveDays = days.coerceIn(1, 365)
+            val warning: String? = when {
+                days < 1 -> "Parameter 'days' must be at least 1. Adjusted from $days to $effectiveDays."
+                days > 365 -> "Parameter 'days' cannot exceed 365. Adjusted from $days to $effectiveDays."
+                else -> null
+            }
+            
             val data = stockService.fetchSP500DailyPrices(effectiveDays)
             
-            if (data.isEmpty()) {
-                ResponseEntity.ok(mapOf(
-                    "status" to "success",
-                    "message" to "No S&P 500 data available",
-                    "symbol" to "SPY",
-                    "days" to effectiveDays,
-                    "data" to emptyList<Map<String, Any>>()
-                ))
-            } else {
-                ResponseEntity.ok(mapOf(
-                    "status" to "success",
-                    "symbol" to "SPY",
-                    "description" to "S&P 500 ETF (SPDR)",
-                    "interval" to "1day",
-                    "days" to effectiveDays,
-                    "count" to data.size,
-                    "data" to data
-                ))
+            val response = mutableMapOf<String, Any>(
+                "status" to "success",
+                "symbol" to "SPY",
+                "description" to "S&P 500 ETF (SPDR)",
+                "interval" to "1day",
+                "requestedDays" to days,
+                "days" to effectiveDays,
+                "count" to data.size,
+                "data" to data
+            )
+            
+            if (warning != null) {
+                response["warning"] = warning
             }
+            
+            if (data.isEmpty()) {
+                response["message"] = "No S&P 500 data available"
+            }
+            
+            ResponseEntity.ok(response.toMap())
         } catch (e: Exception) {
             ResponseEntity.internalServerError().body(mapOf(
                 "status" to "error",
