@@ -92,4 +92,39 @@ class StockController(
             ResponseEntity.internalServerError().body("Error during stock data transformation: ${e.message}")
         }
     }
+
+    @GetMapping("/snp500/daily")
+    fun getSP500DailyPrices(
+        @RequestParam(defaultValue = "30") days: Int
+    ): ResponseEntity<Map<String, Any>> {
+        return try {
+            val effectiveDays = days.coerceIn(1, 365)  // Limit between 1 and 365 days
+            val data = stockService.fetchSP500DailyPrices(effectiveDays)
+            
+            if (data.isEmpty()) {
+                ResponseEntity.ok(mapOf(
+                    "status" to "success",
+                    "message" to "No S&P 500 data available",
+                    "symbol" to "SPY",
+                    "days" to effectiveDays,
+                    "data" to emptyList<Map<String, Any>>()
+                ))
+            } else {
+                ResponseEntity.ok(mapOf(
+                    "status" to "success",
+                    "symbol" to "SPY",
+                    "description" to "S&P 500 ETF (SPDR)",
+                    "interval" to "1day",
+                    "days" to effectiveDays,
+                    "count" to data.size,
+                    "data" to data
+                ))
+            }
+        } catch (e: Exception) {
+            ResponseEntity.internalServerError().body(mapOf(
+                "status" to "error",
+                "message" to "Error fetching S&P 500 data: ${e.message}"
+            ))
+        }
+    }
 }
