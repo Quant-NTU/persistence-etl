@@ -343,5 +343,66 @@ class StockService(
         }
     }
 
+    /**
+     * Fetch S&P 500 (SPY ETF) daily prices for the specified number of days.
+     * Returns a list of daily price data maps containing date, open, high, low, close, and volume.
+     * 
+     * @param days Number of days to fetch (default 30, max 365)
+     * @return List of price data maps
+     */
+    fun fetchSP500DailyPrices(days: Int = 30): List<Map<String, Any>> {
+        val symbol = "SPY"  // S&P 500 ETF (SPDR)
+        val interval = "1day"
+        
+        try {
+            logger.info("Fetching S&P 500 (SPY) daily prices for last $days days")
+            
+            val response = webClient
+                .get()
+                .uri { uriBuilder ->
+                    uriBuilder
+                        .path("/time_series")
+                        .queryParam("symbol", symbol)
+                        .queryParam("interval", interval)
+                        .queryParam("outputsize", days)
+                        .queryParam("apikey", apiKey)
+                        .build()
+                }
+                .retrieve()
+                .bodyToMono(String::class.java)
+                .block()
+
+            val jsonResponse = objectMapper.readTree(response)
+            
+            if (jsonResponse == null || !jsonResponse.has("values") || !jsonResponse["values"].isArray) {
+                logger.warn("No S&P 500 data returned from API")
+                return emptyList()
+            }
+
+            val priceData = mutableListOf<Map<String, Any>>()
+            
+            jsonResponse["values"].forEach { node ->
+                try {
+                    priceData.add(mapOf(
+                        "date" to node["datetime"].asText(),
+                        "open" to node["open"].asDouble(),
+                        "high" to node["high"].asDouble(),
+                        "low" to node["low"].asDouble(),
+                        "close" to node["close"].asDouble(),
+                        "volume" to node["volume"].asLong()
+                    ))
+                } catch (e: Exception) {
+                    logger.error("Error parsing S&P 500 data point: ${e.message}")
+                }
+            }
+
+            logger.info("Successfully fetched ${priceData.size} S&P 500 daily price records")
+            return priceData
+            
+        } catch (e: Exception) {
+            logger.error("Error fetching S&P 500 data: ${e.message}")
+            throw e
+        }
+    }
 
 }
