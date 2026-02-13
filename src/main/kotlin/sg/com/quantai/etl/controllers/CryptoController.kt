@@ -108,4 +108,35 @@ class CryptoController(
             "close" to price
         ))
     }
+
+    /**
+     * Fetch historical price data for a cryptocurrency (for chart display)
+     * Example Usage:
+     * GET /crypto/price-history?symbol=BTC&currency=USD&days=30
+     */
+    @GetMapping("/price-history")
+    fun getPriceHistory(
+        @RequestParam symbol: String,
+        @RequestParam(defaultValue = "USD") currency: String,
+        @RequestParam(defaultValue = "30") days: Int
+    ): ResponseEntity<Map<String, Any>> {
+        return try {
+            val effectiveDays = days.coerceIn(1, 365)
+            val data = cryptoService.fetchPriceHistory(symbol, currency, effectiveDays)
+            
+            ResponseEntity.ok(mapOf(
+                "status" to "success",
+                "symbol" to symbol,
+                "currency" to currency,
+                "days" to effectiveDays,
+                "count" to data.size,
+                "data" to data
+            ))
+        } catch (e: Exception) {
+            ResponseEntity.status(500).body(mapOf(
+                "status" to "error",
+                "message" to "Error fetching price history: ${e.message}"
+            ))
+        }
+    }
 }

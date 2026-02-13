@@ -61,4 +61,34 @@ class ForexController(
             ResponseEntity.internalServerError().body("Error during forex data transformation: ${e.message}")
         }
     }
+
+    /**
+     * Fetch historical price data for a forex pair (for chart display)
+     * Example Usage:
+     * GET /forex/price-history?currencyPair=EUR/USD&days=30
+     */
+    @GetMapping("/price-history")
+    fun getPriceHistory(
+        @RequestParam currencyPair: String,
+        @RequestParam(defaultValue = "30") days: Int
+    ): ResponseEntity<Map<String, Any>> {
+        return try {
+            val effectiveDays = days.coerceIn(1, 365)
+            val data = forexService.fetchPriceHistory(currencyPair, effectiveDays)
+            
+            ResponseEntity.ok(mapOf(
+                "status" to "success",
+                "currencyPair" to currencyPair,
+                "interval" to "1day",
+                "days" to effectiveDays,
+                "count" to data.size,
+                "data" to data
+            ))
+        } catch (e: Exception) {
+            ResponseEntity.internalServerError().body(mapOf(
+                "status" to "error",
+                "message" to "Error fetching price history: ${e.message}"
+            ))
+        }
+    }
 }
