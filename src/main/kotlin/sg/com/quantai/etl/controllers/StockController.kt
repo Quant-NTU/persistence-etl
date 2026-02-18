@@ -135,4 +135,34 @@ class StockController(
             ))
         }
     }
+
+    /**
+     * Fetch historical price data for a stock (for chart display)
+     * Example Usage:
+     * GET /stock/price-history?symbol=AAPL&days=30
+     */
+    @GetMapping("/price-history")
+    fun getPriceHistory(
+        @RequestParam symbol: String,
+        @RequestParam(defaultValue = "30") days: Int
+    ): ResponseEntity<Map<String, Any>> {
+        return try {
+            val effectiveDays = days.coerceIn(1, 365)
+            val data = stockService.fetchPriceHistory(symbol, effectiveDays)
+            
+            ResponseEntity.ok(mapOf(
+                "status" to "success",
+                "symbol" to symbol,
+                "interval" to "1day",
+                "days" to effectiveDays,
+                "count" to data.size,
+                "data" to data
+            ))
+        } catch (e: Exception) {
+            ResponseEntity.internalServerError().body(mapOf(
+                "status" to "error",
+                "message" to "Error fetching price history: ${e.message}"
+            ))
+        }
+    }
 }

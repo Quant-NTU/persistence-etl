@@ -405,4 +405,62 @@ class StockService(
         }
     }
 
+    /**
+     * Fetch historical price data for a stock (for chart display).
+     * Returns a list of price data points for the specified number of days.
+     */
+    fun fetchPriceHistory(symbol: String, days: Int): List<Map<String, Any>> {
+        val interval = "1day"
+        
+        try {
+            logger.info("Fetching price history for stock $symbol for $days days")
+            
+            val response = webClient
+                .get()
+                .uri { uriBuilder ->
+                    uriBuilder
+                        .path("/time_series")
+                        .queryParam("symbol", symbol)
+                        .queryParam("interval", interval)
+                        .queryParam("outputsize", days)
+                        .queryParam("apikey", apiKey)
+                        .build()
+                }
+                .retrieve()
+                .bodyToMono(String::class.java)
+                .block()
+
+            val jsonResponse = objectMapper.readTree(response)
+            
+            if (jsonResponse == null || !jsonResponse.has("values") || !jsonResponse["values"].isArray) {
+                logger.warn("No price history data returned for $symbol")
+                return emptyList()
+            }
+
+            val priceData = mutableListOf<Map<String, Any>>()
+            
+            jsonResponse["values"].forEach { node ->
+                try {
+                    priceData.add(mapOf(
+                        "date" to node["datetime"].asText(),
+                        "open" to node["open"].asDouble(),
+                        "high" to node["high"].asDouble(),
+                        "low" to node["low"].asDouble(),
+                        "close" to node["close"].asDouble(),
+                        "volume" to node["volume"].asLong()
+                    ))
+                } catch (e: Exception) {
+                    logger.error("Error parsing price history data point for $symbol: ${e.message}")
+                }
+            }
+
+            logger.info("Successfully fetched ${priceData.size} price history records for $symbol")
+            return priceData
+            
+        } catch (e: Exception) {
+            logger.error("Error fetching price history for $symbol: ${e.message}")
+            throw e
+        }
+    }
+
 }

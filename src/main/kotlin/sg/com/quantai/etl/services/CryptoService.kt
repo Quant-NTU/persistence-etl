@@ -243,4 +243,68 @@ class CryptoService(
         val count = jdbcTemplate.queryForObject(sql, Int::class.java, symbol, timestamp)
         return count != null && count > 0
     }
+
+    /**
+     * Fetch historical price data for chart display (without storing).
+     * Returns a list of price data points for the specified number of days.
+     */
+    fun fetchPriceHistory(symbol: String, currency: String, days: Int): List<Map<String, Any>> {
+        try {
+            logger.info("Fetching price history for $symbol-$currency for $days days")
+
+            val response = webClient
+                .get()
+                .uri { uriBuilder ->
+                    uriBuilder
+                        .path("/data/v2/histoday")
+                        .queryParam("fsym", symbol)
+                        .queryParam("tsym", currency)
+                        .queryParam("limit", days)
+                        .queryParam("api_key", apiKey)
+                        .build()
+                }
+                .retrieve()
+                .bodyToMono(String::class.java)
+                .block()
+
+            val json = objectMapper.readTree(response)
+            val dataArray = json?.path("Data")?.path("Data")
+
+            if (dataArray == null || !dataArray.isArray || dataArray.isEmpty) {
+                logger.warn("No price history found for $symbol-$currency")
+                return emptyList()
+            }
+
+            val priceData = mutableListOf<Map<String, Any>>()
+
+            dataArray.forEach { node ->
+                try {
+                    val timestamp = node["time"].asLong()
+                    val date = java.time.Instant.ofEpochSecond(timestamp)
+                        .atZone(java.time.ZoneId.systemDefault())
+                        .toLocalDate()
+                        .toString()
+
+                    priceData.add(mapOf(
+                        "date" to date,
+                        "open" to node["open"].asDouble(),
+                        "high" to node["high"].asDouble(),
+                        "low" to node["low"].asDouble(),
+                        "close" to node["close"].asDouble(),
+                        "volumeFrom" to node["volumefrom"].asDouble(),
+                        "volumeTo" to node["volumeto"].asDouble()
+                    ))
+                } catch (e: Exception) {
+                    logger.error("Error parsing price history data point: ${e.message}")
+                }
+            }
+
+            logger.info("Successfully fetched ${priceData.size} price history records for $symbol")
+            return priceData
+
+        } catch (e: Exception) {
+            logger.error("Error fetching price history for $symbol-$currency: ${e.message}")
+            throw e
+        }
+    }
 }
