@@ -1,5 +1,6 @@
 package sg.com.quantai.etl.services
 
+import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -11,6 +12,7 @@ import reactor.core.publisher.Mono
 import java.net.URI
 import java.util.function.Function
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertThrows
 
 class StockServiceTest {
 
@@ -18,14 +20,17 @@ class StockServiceTest {
     private lateinit var webClientBuilder: WebClient.Builder
     private lateinit var webClient: WebClient
     private lateinit var jdbcTemplate: JdbcTemplate
+    private lateinit var twelveDataApiClient: TwelveDataApiClient
     private val twelveDataBaseUrl = "https://api.twelvedata.com"
     private val apiKey = "test-api-key"
+    private val objectMapper = ObjectMapper()
 
     @BeforeEach
     fun setUp() {
         webClientBuilder = Mockito.mock(WebClient.Builder::class.java)
         webClient = Mockito.mock(WebClient::class.java)
         jdbcTemplate = Mockito.mock(JdbcTemplate::class.java)
+        twelveDataApiClient = Mockito.mock(TwelveDataApiClient::class.java)
 
         val requestHeadersUriSpec = Mockito.mock(WebClient.RequestHeadersUriSpec::class.java)
         val requestHeadersSpec = Mockito.mock(WebClient.RequestHeadersSpec::class.java)
@@ -46,7 +51,7 @@ class StockServiceTest {
         )
 
         // Initialize the service
-        stockService = StockService(webClientBuilder, twelveDataBaseUrl, apiKey, ObjectMapper(), jdbcTemplate)
+        stockService = StockService(webClientBuilder, twelveDataBaseUrl, apiKey, objectMapper, jdbcTemplate, twelveDataApiClient)
     }
 
     @Test
@@ -111,9 +116,10 @@ class StockServiceTest {
 
         // Call method
         stockService.fetchAndStoreHistoricalDataByDate(
-            "AAPL",
-            "2024-01-01",
-            "2024-01-31"
+            symbol = "AAPL",
+            interval = "1day",
+            startDate = "2024-01-01",
+            endDate = "2024-01-31"
         )
 
         // Verify DB insert happened
@@ -124,7 +130,7 @@ class StockServiceTest {
     }
 
     @Test
-    fun `should throw exception when error occurs during stock historical fetch by date`() {
+    fun `should handle exception gracefully during stock historical fetch by date`() {
         // Force DB failure
         Mockito.`when`(
             jdbcTemplate.batchUpdate(
@@ -133,15 +139,82 @@ class StockServiceTest {
             )
         ).thenThrow(RuntimeException("DB error"))
 
-        val exception = org.junit.jupiter.api.assertThrows<RuntimeException> {
-            stockService.fetchAndStoreHistoricalDataByDate(
-                "AAPL",
-                "2024-01-01",
-                "2024-01-31"
-            )
-        }
+        // Method handles errors gracefully by catching and logging - no exception thrown
+        stockService.fetchAndStoreHistoricalDataByDate(
+            symbol = "AAPL",
+            interval = "1day",
+            startDate = "2024-01-01",
+            endDate = "2024-01-31"
+        )
+        
+        // Verify the method completed without throwing an exception
+        // (errors are logged internally)
+    }
 
-        assertEquals("DB error", exception.message)
+    @Test
+    fun `fetchPriceHistory should return price data on success`() {
+        // Arrange
+        val mockJsonResponse = objectMapper.readTree("""{"values": [{"datetime": "2024-01-15", "open": 150.0, "high": 155.0, "low": 148.0, "close": 152.0, "volume": 1000000}]}""")
+        val mockPriceData = listOf(
+            mapOf("date" to "2024-01-15", "open" to 150.0, "high" to 155.0, "low" to 148.0, "close" to 152.0, "volume" to 1000000L)
+        )
+        
+        Mockito.`when`(twelveDataApiClient.fetchTimeSeries("AAPL", "1day", 30)).thenReturn(mockJsonResponse)
+        Mockito.`when`(twelveDataApiClient.parsePriceHistory(mockJsonResponse, true)).thenReturn(mockPriceData)
+
+        // Act
+        val result = stockService.fetchPriceHistory("AAPL", 30)
+
+        // Assert
+        assertEquals(1, result.size)
+        assertEquals("2024-01-15", result[0]["date"])
+        assertEquals(152.0, result[0]["close"])
+        Mockito.verify(twelveDataApiClient).fetchTimeSeries("AAPL", "1day", 30)
+        Mockito.verify(twelveDataApiClient).parsePriceHistory(mockJsonResponse, true)
+    }
+
+    @Test
+    fun `fetchPriceHistory should throw exception when API returns null`() {
+        // Arrange
+        Mockito.`when`(twelveDataApiClient.fetchTimeSeries("AAPL", "1day", 30)).thenReturn(null)
+
+        // Act & Assert
+        val exception = assertThrows(RuntimeException::class.java) {
+            stockService.fetchPriceHistory("AAPL", 30)
+        }
+        assertEquals("Failed to fetch price history for AAPL", exception.message)
+    }
+
+    @Test
+    fun `fetchSP500DailyPrices should return price data on success`() {
+        // Arrange
+        val mockJsonResponse = objectMapper.readTree("""{"values": [{"datetime": "2024-01-15", "open": 500.0, "high": 505.0, "low": 498.0, "close": 502.0, "volume": 5000000}]}""")
+        val mockPriceData = listOf(
+            mapOf("date" to "2024-01-15", "open" to 500.0, "high" to 505.0, "low" to 498.0, "close" to 502.0, "volume" to 5000000L)
+        )
+        
+        Mockito.`when`(twelveDataApiClient.fetchTimeSeries("SPY", "1day", 30)).thenReturn(mockJsonResponse)
+        Mockito.`when`(twelveDataApiClient.parsePriceHistory(mockJsonResponse, true)).thenReturn(mockPriceData)
+
+        // Act
+        val result = stockService.fetchSP500DailyPrices(30)
+
+        // Assert
+        assertEquals(1, result.size)
+        assertEquals("2024-01-15", result[0]["date"])
+        assertEquals(502.0, result[0]["close"])
+    }
+
+    @Test
+    fun `fetchSP500DailyPrices should throw exception when API returns null`() {
+        // Arrange
+        Mockito.`when`(twelveDataApiClient.fetchTimeSeries("SPY", "1day", 30)).thenReturn(null)
+
+        // Act & Assert
+        val exception = assertThrows(RuntimeException::class.java) {
+            stockService.fetchSP500DailyPrices(30)
+        }
+        assertEquals("Failed to fetch S&P 500 data", exception.message)
     }
 
 }

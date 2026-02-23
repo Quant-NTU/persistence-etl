@@ -34,7 +34,8 @@ class StockService(
     @Value("\${quantai.external.api.twelvedata.url}") private val twelveDataBaseUrl: String,
     @Value("\${quantai.external.api.twelvedata.key}") private val apiKey: String,
     private val objectMapper: ObjectMapper,
-    private val jdbcTemplate: JdbcTemplate
+    private val jdbcTemplate: JdbcTemplate,
+    private val twelveDataApiClient: TwelveDataApiClient
 ) {
 
     private val logger: Logger = LoggerFactory.getLogger(StockService::class.java)
@@ -352,57 +353,16 @@ class StockService(
      */
     fun fetchSP500DailyPrices(days: Int = 30): List<Map<String, Any>> {
         val symbol = "SPY"  // S&P 500 ETF (SPDR)
-        val interval = "1day"
         
-        try {
-            logger.info("Fetching S&P 500 (SPY) daily prices for last $days days")
-            
-            val response = webClient
-                .get()
-                .uri { uriBuilder ->
-                    uriBuilder
-                        .path("/time_series")
-                        .queryParam("symbol", symbol)
-                        .queryParam("interval", interval)
-                        .queryParam("outputsize", days)
-                        .queryParam("apikey", apiKey)
-                        .build()
-                }
-                .retrieve()
-                .bodyToMono(String::class.java)
-                .block()
-
-            val jsonResponse = objectMapper.readTree(response)
-            
-            if (jsonResponse == null || !jsonResponse.has("values") || !jsonResponse["values"].isArray) {
-                logger.warn("No S&P 500 data returned from API")
-                return emptyList()
-            }
-
-            val priceData = mutableListOf<Map<String, Any>>()
-            
-            jsonResponse["values"].forEach { node ->
-                try {
-                    priceData.add(mapOf(
-                        "date" to node["datetime"].asText(),
-                        "open" to node["open"].asDouble(),
-                        "high" to node["high"].asDouble(),
-                        "low" to node["low"].asDouble(),
-                        "close" to node["close"].asDouble(),
-                        "volume" to node["volume"].asLong()
-                    ))
-                } catch (e: Exception) {
-                    logger.error("Error parsing S&P 500 data point: ${e.message}")
-                }
-            }
-
-            logger.info("Successfully fetched ${priceData.size} S&P 500 daily price records")
-            return priceData
-            
-        } catch (e: Exception) {
-            logger.error("Error fetching S&P 500 data: ${e.message}")
-            throw e
-        }
+        logger.info("Fetching S&P 500 (SPY) daily prices for last $days days")
+        
+        val jsonResponse = twelveDataApiClient.fetchTimeSeries(symbol, "1day", days)
+            ?: throw RuntimeException("Failed to fetch S&P 500 data")
+        
+        val priceData = twelveDataApiClient.parsePriceHistory(jsonResponse, includeVolume = true)
+        
+        logger.info("Successfully fetched ${priceData.size} S&P 500 daily price records")
+        return priceData
     }
 
     /**
@@ -410,57 +370,15 @@ class StockService(
      * Returns a list of price data points for the specified number of days.
      */
     fun fetchPriceHistory(symbol: String, days: Int): List<Map<String, Any>> {
-        val interval = "1day"
+        logger.info("Fetching price history for stock $symbol for $days days")
         
-        try {
-            logger.info("Fetching price history for stock $symbol for $days days")
-            
-            val response = webClient
-                .get()
-                .uri { uriBuilder ->
-                    uriBuilder
-                        .path("/time_series")
-                        .queryParam("symbol", symbol)
-                        .queryParam("interval", interval)
-                        .queryParam("outputsize", days)
-                        .queryParam("apikey", apiKey)
-                        .build()
-                }
-                .retrieve()
-                .bodyToMono(String::class.java)
-                .block()
-
-            val jsonResponse = objectMapper.readTree(response)
-            
-            if (jsonResponse == null || !jsonResponse.has("values") || !jsonResponse["values"].isArray) {
-                logger.warn("No price history data returned for $symbol")
-                return emptyList()
-            }
-
-            val priceData = mutableListOf<Map<String, Any>>()
-            
-            jsonResponse["values"].forEach { node ->
-                try {
-                    priceData.add(mapOf(
-                        "date" to node["datetime"].asText(),
-                        "open" to node["open"].asDouble(),
-                        "high" to node["high"].asDouble(),
-                        "low" to node["low"].asDouble(),
-                        "close" to node["close"].asDouble(),
-                        "volume" to node["volume"].asLong()
-                    ))
-                } catch (e: Exception) {
-                    logger.error("Error parsing price history data point for $symbol: ${e.message}")
-                }
-            }
-
-            logger.info("Successfully fetched ${priceData.size} price history records for $symbol")
-            return priceData
-            
-        } catch (e: Exception) {
-            logger.error("Error fetching price history for $symbol: ${e.message}")
-            throw e
-        }
+        val jsonResponse = twelveDataApiClient.fetchTimeSeries(symbol, "1day", days)
+            ?: throw RuntimeException("Failed to fetch price history for $symbol")
+        
+        val priceData = twelveDataApiClient.parsePriceHistory(jsonResponse, includeVolume = true)
+        
+        logger.info("Successfully fetched ${priceData.size} price history records for $symbol")
+        return priceData
     }
 
 }

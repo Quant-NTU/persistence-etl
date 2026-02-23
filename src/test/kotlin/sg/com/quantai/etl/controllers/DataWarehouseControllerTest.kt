@@ -27,27 +27,28 @@ class DataWarehouseControllerTest {
     @Test
     fun `loadFullWarehouse should return success when load completes`() {
         // Given
-        doNothing().whenever(dataWarehouseETLService).loadAllDataToWarehouse()
+        val mockResult = mapOf("totalRecordsLoaded" to 100L, "loadType" to "full")
+        whenever(dataWarehouseETLService.loadAllDataToWarehouse(isNull())).thenReturn(mockResult)
 
         // When
-        val response = dataWarehouseController.loadFullWarehouse()
+        val response = dataWarehouseController.loadFullWarehouse(null)
 
         // Then
         assertEquals(HttpStatus.OK, response.statusCode)
         assertNotNull(response.body)
         assertEquals("success", response.body!!["status"])
         assertEquals("Full data warehouse load completed successfully", response.body!!["message"])
-        verify(dataWarehouseETLService).loadAllDataToWarehouse()
+        verify(dataWarehouseETLService).loadAllDataToWarehouse(isNull())
     }
 
     @Test
     fun `loadFullWarehouse should return error when load fails`() {
         // Given
-        whenever(dataWarehouseETLService.loadAllDataToWarehouse())
+        whenever(dataWarehouseETLService.loadAllDataToWarehouse(isNull()))
             .thenThrow(RuntimeException("Database connection failed"))
 
         // When
-        val response = dataWarehouseController.loadFullWarehouse()
+        val response = dataWarehouseController.loadFullWarehouse(null)
 
         // Then
         assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.statusCode)
@@ -59,27 +60,28 @@ class DataWarehouseControllerTest {
     @Test
     fun `loadIncrementalWarehouse should return success when load completes`() {
         // Given
-        doNothing().whenever(dataWarehouseETLService).incrementalLoadToWarehouse()
+        val mockResult = mapOf("totalRecordsLoaded" to 50L, "loadType" to "incremental")
+        whenever(dataWarehouseETLService.incrementalLoadToWarehouse(isNull(), eq(2))).thenReturn(mockResult)
 
         // When
-        val response = dataWarehouseController.loadIncrementalWarehouse()
+        val response = dataWarehouseController.loadIncrementalWarehouse(null, 2)
 
         // Then
         assertEquals(HttpStatus.OK, response.statusCode)
         assertNotNull(response.body)
         assertEquals("success", response.body!!["status"])
         assertEquals("Incremental data warehouse load completed successfully", response.body!!["message"])
-        verify(dataWarehouseETLService).incrementalLoadToWarehouse()
+        verify(dataWarehouseETLService).incrementalLoadToWarehouse(isNull(), eq(2))
     }
 
     @Test
     fun `loadIncrementalWarehouse should return error when load fails`() {
         // Given
-        whenever(dataWarehouseETLService.incrementalLoadToWarehouse())
+        whenever(dataWarehouseETLService.incrementalLoadToWarehouse(isNull(), eq(2)))
             .thenThrow(RuntimeException("Query timeout"))
 
         // When
-        val response = dataWarehouseController.loadIncrementalWarehouse()
+        val response = dataWarehouseController.loadIncrementalWarehouse(null, 2)
 
         // Then
         assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.statusCode)
@@ -91,7 +93,8 @@ class DataWarehouseControllerTest {
     @Test
     fun `refreshMaterializedViews should return success when refresh completes`() {
         // Given
-        doNothing().whenever(dataWarehouseETLService).refreshMaterializedViews()
+        val mockResult = mapOf("viewsRefreshed" to 4)
+        whenever(dataWarehouseETLService.refreshMaterializedViews()).thenReturn(mockResult)
 
         // When
         val response = dataWarehouseController.refreshMaterializedViews()
@@ -193,9 +196,9 @@ class DataWarehouseControllerTest {
     @Test
     fun `all endpoints should handle null pointer exceptions`() {
         // Given
-        whenever(dataWarehouseETLService.loadAllDataToWarehouse())
+        whenever(dataWarehouseETLService.loadAllDataToWarehouse(isNull()))
             .thenThrow(NullPointerException("Unexpected null value"))
-        whenever(dataWarehouseETLService.incrementalLoadToWarehouse())
+        whenever(dataWarehouseETLService.incrementalLoadToWarehouse(isNull(), eq(2)))
             .thenThrow(NullPointerException("Unexpected null value"))
         whenever(dataWarehouseETLService.refreshMaterializedViews())
             .thenThrow(NullPointerException("Unexpected null value"))
@@ -203,8 +206,8 @@ class DataWarehouseControllerTest {
             .thenThrow(NullPointerException("Unexpected null value"))
 
         // When
-        val fullLoadResponse = dataWarehouseController.loadFullWarehouse()
-        val incrementalResponse = dataWarehouseController.loadIncrementalWarehouse()
+        val fullLoadResponse = dataWarehouseController.loadFullWarehouse(null)
+        val incrementalResponse = dataWarehouseController.loadIncrementalWarehouse(null, 2)
         val refreshResponse = dataWarehouseController.refreshMaterializedViews()
         val statsResponse = dataWarehouseController.getWarehouseStatistics()
 
@@ -218,15 +221,16 @@ class DataWarehouseControllerTest {
     @Test
     fun `response format should be consistent across endpoints`() {
         // Given
-        doNothing().whenever(dataWarehouseETLService).loadAllDataToWarehouse()
-        doNothing().whenever(dataWarehouseETLService).incrementalLoadToWarehouse()
-        doNothing().whenever(dataWarehouseETLService).refreshMaterializedViews()
+        val mockResult = mapOf("test" to "data")
+        whenever(dataWarehouseETLService.loadAllDataToWarehouse(isNull())).thenReturn(mockResult)
+        whenever(dataWarehouseETLService.incrementalLoadToWarehouse(isNull(), eq(2))).thenReturn(mockResult)
+        whenever(dataWarehouseETLService.refreshMaterializedViews()).thenReturn(mockResult)
         whenever(dataWarehouseETLService.getWarehouseStatistics()).thenReturn(emptyMap())
 
         // When
         val responses = listOf(
-            dataWarehouseController.loadFullWarehouse(),
-            dataWarehouseController.loadIncrementalWarehouse(),
+            dataWarehouseController.loadFullWarehouse(null),
+            dataWarehouseController.loadIncrementalWarehouse(null, 2),
             dataWarehouseController.refreshMaterializedViews(),
             dataWarehouseController.getWarehouseStatistics()
         )
@@ -238,5 +242,32 @@ class DataWarehouseControllerTest {
             assertEquals("success", response.body!!["status"])
         }
     }
-}
 
+    @Test
+    fun `loadFullWarehouse should accept asset type filter`() {
+        // Given
+        val mockResult = mapOf("assetTypesLoaded" to listOf("STOCK"))
+        whenever(dataWarehouseETLService.loadAllDataToWarehouse(eq(listOf("STOCK")))).thenReturn(mockResult)
+
+        // When
+        val response = dataWarehouseController.loadFullWarehouse("STOCK")
+
+        // Then
+        assertEquals(HttpStatus.OK, response.statusCode)
+        verify(dataWarehouseETLService).loadAllDataToWarehouse(eq(listOf("STOCK")))
+    }
+
+    @Test
+    fun `loadIncrementalWarehouse should accept custom hours back`() {
+        // Given
+        val mockResult = mapOf("hoursBack" to 12)
+        whenever(dataWarehouseETLService.incrementalLoadToWarehouse(isNull(), eq(12))).thenReturn(mockResult)
+
+        // When
+        val response = dataWarehouseController.loadIncrementalWarehouse(null, 12)
+
+        // Then
+        assertEquals(HttpStatus.OK, response.statusCode)
+        verify(dataWarehouseETLService).incrementalLoadToWarehouse(isNull(), eq(12))
+    }
+}
