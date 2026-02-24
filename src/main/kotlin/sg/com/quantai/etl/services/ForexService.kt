@@ -286,7 +286,7 @@ class ForexService(
 
         } catch (e: Exception) {
             logger.error("Error fetching forex data by date for $currencyPair: ${e.message}")
-            null
+            throw RuntimeException("Failed to fetch historical data for $currencyPair", e)
         }
     }
 
