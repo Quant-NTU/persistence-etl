@@ -141,16 +141,15 @@ class DataWarehouseETLServiceTest {
         whenever(jdbcTemplate.execute(argThat<String> { !this.contains("mv_daily_ohlc_summary") }))
             .then { }
 
-        // When & Then - Should throw exception after attempting all views
-        val exception = assertThrows<RuntimeException> {
-            dataWarehouseETLService.refreshMaterializedViews()
-        }
+        // When - Method handles errors gracefully and returns result map
+        val result = dataWarehouseETLService.refreshMaterializedViews()
         
-        // Verify exception message contains error information
-        assertTrue(exception.message!!.contains("1 error"))
-        assertTrue(exception.message!!.contains("mv_daily_ohlc_summary"))
+        // Then - Result should contain error information
+        assertEquals(1, result["viewsWithErrors"])
+        assertEquals(3, result["viewsRefreshed"])
+        assertTrue((result["errors"] as List<*>).any { it.toString().contains("mv_daily_ohlc_summary") })
         
-        // Should still attempt to refresh other views before throwing
+        // Should still attempt to refresh other views
         verify(jdbcTemplate).execute(argThat<String> { this.contains("mv_hourly_ohlc_summary") })
         verify(jdbcTemplate).execute(argThat<String> { this.contains("mv_asset_type_summary") })
         verify(jdbcTemplate).execute(argThat<String> { this.contains("mv_symbol_analytics") })

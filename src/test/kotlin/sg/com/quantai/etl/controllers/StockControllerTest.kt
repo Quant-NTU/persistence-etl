@@ -95,19 +95,23 @@ class StockControllerTest {
     @Test
     fun `should fetch and store stock historical data by date successfully`() {
         // Arrange
+        `when`(stockService.getSupportedIntervals()).thenReturn(listOf("1min", "5min", "15min", "1h", "4h", "1day"))
         doNothing().`when`(stockService).fetchAndStoreHistoricalDataByDate(
-            "AAPL", "2025-10-01", "2025-10-31"
+            symbol = "AAPL",
+            interval = "1day",
+            startDate = "2025-10-01",
+            endDate = "2025-10-31"
         )
 
         // Act
         val response = controller.fetchAndStoreHistoricalDataByDate(
-            "AAPL", "2025-10-01", "2025-10-31"
+            "AAPL", "2025-10-01", "2025-10-31", "1day"
         )
 
         // Assert
         assertEquals(HttpStatus.OK, response.statusCode)
         assertEquals(
-            "Historical data for AAPL from 2025-10-01 to 2025-10-31 successfully stored!",
+            "Historical data for AAPL (interval=1day) from 2025-10-01 to 2025-10-31 successfully stored!",
             response.body
         )
     }
@@ -115,19 +119,95 @@ class StockControllerTest {
     @Test
     fun `should handle error while storing stock historical data by date`() {
         // Arrange
+        `when`(stockService.getSupportedIntervals()).thenReturn(listOf("1min", "5min", "15min", "1h", "4h", "1day"))
         doThrow(RuntimeException("Mocked exception"))
             .`when`(stockService).fetchAndStoreHistoricalDataByDate(
-                "AAPL", "2025-10-01", "2025-10-31"
+                symbol = "AAPL",
+                interval = "1day",
+                startDate = "2025-10-01",
+                endDate = "2025-10-31"
             )
 
         // Act
         val response = controller.fetchAndStoreHistoricalDataByDate(
-            "AAPL", "2025-10-01", "2025-10-31"
+            "AAPL", "2025-10-01", "2025-10-31", "1day"
         )
 
         // Assert
         assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.statusCode)
         assert(response.body!!.contains("Error storing historical data"))
+    }
+
+    @Test
+    fun `getPriceHistory returns OK with price data on success`() {
+        // Arrange
+        val mockPriceData = listOf(
+            mapOf("date" to "2025-01-15", "open" to 150.0, "high" to 155.0, "low" to 148.0, "close" to 152.0, "volume" to 1000000L),
+            mapOf("date" to "2025-01-14", "open" to 148.0, "high" to 151.0, "low" to 147.0, "close" to 150.0, "volume" to 900000L)
+        )
+        `when`(stockService.fetchPriceHistory("AAPL", 30)).thenReturn(mockPriceData)
+
+        // Act
+        val response = controller.getPriceHistory("AAPL", 30)
+
+        // Assert
+        assertEquals(HttpStatus.OK, response.statusCode)
+        val body = response.body as Map<*, *>
+        assertEquals("success", body["status"])
+        assertEquals("AAPL", body["symbol"])
+        assertEquals(30, body["days"])
+        assertEquals(2, body["count"])
+        assertEquals(mockPriceData, body["data"])
+    }
+
+    @Test
+    fun `getPriceHistory returns INTERNAL_SERVER_ERROR on exception`() {
+        // Arrange
+        `when`(stockService.fetchPriceHistory("AAPL", 30))
+            .thenThrow(RuntimeException("API error"))
+
+        // Act
+        val response = controller.getPriceHistory("AAPL", 30)
+
+        // Assert
+        assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.statusCode)
+        val body = response.body as Map<*, *>
+        assertEquals("error", body["status"])
+        assert((body["message"] as String).contains("API error"))
+    }
+
+    @Test
+    fun `getSP500DailyPrices returns OK with price data on success`() {
+        // Arrange
+        val mockPriceData = listOf(
+            mapOf("date" to "2025-01-15", "open" to 500.0, "high" to 505.0, "low" to 498.0, "close" to 502.0, "volume" to 5000000L)
+        )
+        `when`(stockService.fetchSP500DailyPrices(30)).thenReturn(mockPriceData)
+
+        // Act
+        val response = controller.getSP500DailyPrices(30)
+
+        // Assert
+        assertEquals(HttpStatus.OK, response.statusCode)
+        val body = response.body as Map<*, *>
+        assertEquals("success", body["status"])
+        assertEquals("SPY", body["symbol"])
+        assertEquals(1, body["count"])
+    }
+
+    @Test
+    fun `getSP500DailyPrices returns INTERNAL_SERVER_ERROR on exception`() {
+        // Arrange
+        `when`(stockService.fetchSP500DailyPrices(30))
+            .thenThrow(RuntimeException("Network error"))
+
+        // Act
+        val response = controller.getSP500DailyPrices(30)
+
+        // Assert
+        assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.statusCode)
+        val body = response.body as Map<*, *>
+        assertEquals("error", body["status"])
     }
 
 }

@@ -91,5 +91,58 @@ class ForexControllerTest {
         assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.statusCode)
         assertEquals("Error during forex data transformation: Database error", response.body)
     }
+
+    @Test
+    fun `getPriceHistory returns OK with price data on success`() {
+        // Arrange
+        val mockPriceData = listOf(
+            mapOf("date" to "2025-01-15", "open" to 1.08, "high" to 1.09, "low" to 1.07, "close" to 1.085),
+            mapOf("date" to "2025-01-14", "open" to 1.07, "high" to 1.08, "low" to 1.06, "close" to 1.08)
+        )
+        `when`(forexService.fetchPriceHistory("EUR/USD", 30)).thenReturn(mockPriceData)
+
+        // Act
+        val response = controller.getPriceHistory("EUR/USD", 30)
+
+        // Assert
+        assertEquals(HttpStatus.OK, response.statusCode)
+        val body = response.body as Map<*, *>
+        assertEquals("success", body["status"])
+        assertEquals("EUR/USD", body["currencyPair"])
+        assertEquals(30, body["days"])
+        assertEquals(2, body["count"])
+        assertEquals(mockPriceData, body["data"])
+    }
+
+    @Test
+    fun `getPriceHistory returns INTERNAL_SERVER_ERROR on exception`() {
+        // Arrange
+        `when`(forexService.fetchPriceHistory("EUR/USD", 30))
+            .thenThrow(RuntimeException("API error"))
+
+        // Act
+        val response = controller.getPriceHistory("EUR/USD", 30)
+
+        // Assert
+        assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.statusCode)
+        val body = response.body as Map<*, *>
+        assertEquals("error", body["status"])
+        assert((body["message"] as String).contains("API error"))
+    }
+
+    @Test
+    fun `getPriceHistory returns empty data when no price data available`() {
+        // Arrange
+        `when`(forexService.fetchPriceHistory("EUR/USD", 30)).thenReturn(emptyList())
+
+        // Act
+        val response = controller.getPriceHistory("EUR/USD", 30)
+
+        // Assert
+        assertEquals(HttpStatus.OK, response.statusCode)
+        val body = response.body as Map<*, *>
+        assertEquals("success", body["status"])
+        assertEquals(0, body["count"])
+    }
 }
 

@@ -11,6 +11,7 @@ import reactor.core.publisher.Mono
 import java.net.URI
 import java.util.function.Function
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertThrows
 
 class ForexServiceTest {
 
@@ -18,14 +19,17 @@ class ForexServiceTest {
     private lateinit var webClientBuilder: WebClient.Builder
     private lateinit var webClient: WebClient
     private lateinit var jdbcTemplate: JdbcTemplate
+    private lateinit var twelveDataApiClient: TwelveDataApiClient
     private val twelveDataBaseUrl = "https://api.twelvedata.com"
     private val apiKey = "test-api-key"
+    private val objectMapper = ObjectMapper()
 
     @BeforeEach
     fun setUp() {
         webClientBuilder = Mockito.mock(WebClient.Builder::class.java)
         webClient = Mockito.mock(WebClient::class.java)
         jdbcTemplate = Mockito.mock(JdbcTemplate::class.java)
+        twelveDataApiClient = Mockito.mock(TwelveDataApiClient::class.java)
 
         val requestHeadersUriSpec = Mockito.mock(WebClient.RequestHeadersUriSpec::class.java)
         val requestHeadersSpec = Mockito.mock(WebClient.RequestHeadersSpec::class.java)
@@ -46,7 +50,7 @@ class ForexServiceTest {
         )
 
         // Initialize the service
-        forexService = ForexService(webClientBuilder, twelveDataBaseUrl, apiKey, ObjectMapper(), jdbcTemplate)
+        forexService = ForexService(webClientBuilder, twelveDataBaseUrl, apiKey, objectMapper, jdbcTemplate, twelveDataApiClient)
     }
 
     @Test
@@ -97,6 +101,55 @@ class ForexServiceTest {
             Mockito.anyString(),
             Mockito.anyList()
         )
+    }
+
+    @Test
+    fun `fetchPriceHistory should return price data on success`() {
+        // Arrange
+        val mockJsonResponse = objectMapper.readTree("""{"values": [{"datetime": "2024-01-15", "open": 1.085, "high": 1.089, "low": 1.082, "close": 1.0875}]}""")
+        val mockPriceData = listOf(
+            mapOf("date" to "2024-01-15", "open" to 1.085, "high" to 1.089, "low" to 1.082, "close" to 1.0875)
+        )
+        
+        Mockito.`when`(twelveDataApiClient.fetchTimeSeries("EUR/USD", "1day", 30)).thenReturn(mockJsonResponse)
+        Mockito.`when`(twelveDataApiClient.parsePriceHistory(mockJsonResponse, false)).thenReturn(mockPriceData)
+
+        // Act
+        val result = forexService.fetchPriceHistory("EUR/USD", 30)
+
+        // Assert
+        assertEquals(1, result.size)
+        assertEquals("2024-01-15", result[0]["date"])
+        assertEquals(1.0875, result[0]["close"])
+        Mockito.verify(twelveDataApiClient).fetchTimeSeries("EUR/USD", "1day", 30)
+        Mockito.verify(twelveDataApiClient).parsePriceHistory(mockJsonResponse, false)
+    }
+
+    @Test
+    fun `fetchPriceHistory should throw exception when API returns null`() {
+        // Arrange
+        Mockito.`when`(twelveDataApiClient.fetchTimeSeries("EUR/USD", "1day", 30)).thenReturn(null)
+
+        // Act & Assert
+        val exception = assertThrows(RuntimeException::class.java) {
+            forexService.fetchPriceHistory("EUR/USD", 30)
+        }
+        assertEquals("Failed to fetch price history for EUR/USD", exception.message)
+    }
+
+    @Test
+    fun `fetchPriceHistory should return empty list when no data available`() {
+        // Arrange
+        val mockJsonResponse = objectMapper.readTree("""{"values": []}""")
+        
+        Mockito.`when`(twelveDataApiClient.fetchTimeSeries("EUR/USD", "1day", 30)).thenReturn(mockJsonResponse)
+        Mockito.`when`(twelveDataApiClient.parsePriceHistory(mockJsonResponse, false)).thenReturn(emptyList())
+
+        // Act
+        val result = forexService.fetchPriceHistory("EUR/USD", 30)
+
+        // Assert
+        assertEquals(0, result.size)
     }
 }
 

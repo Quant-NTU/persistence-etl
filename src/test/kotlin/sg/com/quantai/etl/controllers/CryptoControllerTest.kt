@@ -159,5 +159,58 @@ class CryptoControllerTest {
         assertEquals("No price found", response.body)
     }
 
+    @Test
+    fun `getPriceHistory returns OK with price data on success`() {
+        // Arrange
+        val mockPriceData = listOf(
+            mapOf("date" to "2025-01-15", "open" to 42000.0, "high" to 43000.0, "low" to 41000.0, "close" to 42500.0, "volumeFrom" to 1000.0, "volumeTo" to 42500000.0),
+            mapOf("date" to "2025-01-14", "open" to 41000.0, "high" to 42500.0, "low" to 40500.0, "close" to 42000.0, "volumeFrom" to 900.0, "volumeTo" to 37800000.0)
+        )
+        `when`(cryptoService.fetchPriceHistory("BTC", "USD", 30)).thenReturn(mockPriceData)
+
+        // Act
+        val response = cryptoController.getPriceHistory("BTC", "USD", 30)
+
+        // Assert
+        assertEquals(HttpStatus.OK, response.statusCode)
+        val body = response.body as Map<*, *>
+        assertEquals("success", body["status"])
+        assertEquals("BTC", body["symbol"])
+        assertEquals("USD", body["currency"])
+        assertEquals(30, body["days"])
+        assertEquals(2, body["count"])
+        assertEquals(mockPriceData, body["data"])
+    }
+
+    @Test
+    fun `getPriceHistory returns INTERNAL_SERVER_ERROR on exception`() {
+        // Arrange
+        `when`(cryptoService.fetchPriceHistory("BTC", "USD", 30))
+            .thenThrow(RuntimeException("API error"))
+
+        // Act
+        val response = cryptoController.getPriceHistory("BTC", "USD", 30)
+
+        // Assert
+        assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.statusCode)
+        val body = response.body as Map<*, *>
+        assertEquals("error", body["status"])
+        assert((body["message"] as String).contains("API error"))
+    }
+
+    @Test
+    fun `getPriceHistory returns empty data when no price data available`() {
+        // Arrange
+        `when`(cryptoService.fetchPriceHistory("BTC", "USD", 30)).thenReturn(emptyList())
+
+        // Act
+        val response = cryptoController.getPriceHistory("BTC", "USD", 30)
+
+        // Assert
+        assertEquals(HttpStatus.OK, response.statusCode)
+        val body = response.body as Map<*, *>
+        assertEquals("success", body["status"])
+        assertEquals(0, body["count"])
+    }
 
 }

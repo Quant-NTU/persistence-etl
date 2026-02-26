@@ -159,4 +159,45 @@ class CryptoServiceTest {
         )
     }
 
+    @Test
+    fun `fetchPriceHistory should return price data on success`() {
+        // The mocked API response already set up in setUp() will be used
+        // It returns: {"Data": {"Data": [{"time": 1234567890, "open": 1.0, "high": 2.0, "low": 0.5, "close": 1.5, "volumefrom": 100.0, "volumeto": 150.0}]}}
+        
+        // Act
+        val result = cryptoService.fetchPriceHistory("BTC", "USD", 30)
+
+        // Assert
+        org.junit.jupiter.api.Assertions.assertEquals(1, result.size)
+        org.junit.jupiter.api.Assertions.assertEquals(1.0, result[0]["open"])
+        org.junit.jupiter.api.Assertions.assertEquals(2.0, result[0]["high"])
+        org.junit.jupiter.api.Assertions.assertEquals(0.5, result[0]["low"])
+        org.junit.jupiter.api.Assertions.assertEquals(1.5, result[0]["close"])
+        org.junit.jupiter.api.Assertions.assertEquals(100.0, result[0]["volumeFrom"])
+        org.junit.jupiter.api.Assertions.assertEquals(150.0, result[0]["volumeTo"])
+    }
+
+    @Test
+    fun `fetchPriceHistory should return empty list when no data available`() {
+        // Arrange - Override the mock to return empty data
+        val requestHeadersUriSpec = Mockito.mock(WebClient.RequestHeadersUriSpec::class.java)
+        val requestHeadersSpec = Mockito.mock(WebClient.RequestHeadersSpec::class.java)
+        val responseSpec = Mockito.mock(WebClient.ResponseSpec::class.java)
+
+        Mockito.`when`(webClient.get()).thenReturn(requestHeadersUriSpec)
+        Mockito.`when`(
+            requestHeadersUriSpec.uri(Mockito.any<Function<UriBuilder, URI>>())
+        ).thenReturn(requestHeadersSpec)
+        Mockito.`when`(requestHeadersSpec.retrieve()).thenReturn(responseSpec)
+        Mockito.`when`(responseSpec.bodyToMono(String::class.java)).thenReturn(
+            Mono.just("""{"Data": {"Data": []}}""")
+        )
+
+        // Act
+        val result = cryptoService.fetchPriceHistory("BTC", "USD", 30)
+
+        // Assert
+        org.junit.jupiter.api.Assertions.assertEquals(0, result.size)
+    }
+
 }
