@@ -295,7 +295,7 @@ class ForexService(
         interval: String,
         startDate: String,
         endDate: String
-    ) {
+    ): Boolean {   
         try {
             logger.info("Fetching $interval forex data for $currencyPair between $startDate and $endDate")
 
@@ -309,9 +309,9 @@ class ForexService(
                 endDate = end
             )
 
-            if (historicalData == null || !historicalData.has("values")) {
+            if (historicalData == null || !historicalData.has("values") || historicalData["values"].isEmpty) {
                 logger.warn("No data returned for $currencyPair")
-                return
+                return false
             }
 
             val batchData = mutableListOf<ForexDataRecord>()
@@ -335,10 +335,17 @@ class ForexService(
                 )
             }
 
+            if (batchData.isEmpty()) {
+                logger.warn("No valid data to store for $currencyPair")
+                return false
+            }
+
             batchInsertHistoricalData(batchData)
+            return true   
 
         } catch (e: Exception) {
             logger.error("Failed fetching forex data for $currencyPair: ${e.message}")
+            throw e  
         }
     }
 

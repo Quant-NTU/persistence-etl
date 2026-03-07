@@ -66,16 +66,22 @@ class ForexController(
                     .body("Unsupported interval: $interval. Supported intervals: ${supportedIntervals.joinToString(", ")}")
             }
 
-            forexService.fetchAndStoreHistoricalDataByDate(
+            val success = forexService.fetchAndStoreHistoricalDataByDate(
                 currencyPair = currencyPair,
                 interval = interval,
                 startDate = startDate,
                 endDate = endDate
             )
 
-            ResponseEntity.ok(
-                "Historical data for $currencyPair (interval=$interval) from $startDate to $endDate successfully stored!"
-            )
+            if (success) {
+                ResponseEntity.ok(
+                    "Historical data for $currencyPair (interval=$interval) from $startDate to $endDate successfully stored!"
+                )
+            } else {
+                ResponseEntity.status(500)
+                    .body("No historical data was stored for $currencyPair from $startDate to $endDate")
+            }
+
         } catch (e: Exception) {
             ResponseEntity.internalServerError()
                 .body("Error storing historical data for $currencyPair: ${e.message}")
