@@ -52,6 +52,42 @@ class ForexController(
         }
     }
 
+    @PostMapping("/historical/store-by-date")
+    fun fetchAndStoreHistoricalDataByDate(
+        @RequestParam currencyPair: String,
+        @RequestParam startDate: String,
+        @RequestParam endDate: String,
+        @RequestParam(defaultValue = "1day") interval: String
+    ): ResponseEntity<String> {
+        return try {
+            val supportedIntervals = forexService.getSupportedIntervals()
+            if (!supportedIntervals.contains(interval)) {
+                return ResponseEntity.badRequest()
+                    .body("Unsupported interval: $interval. Supported intervals: ${supportedIntervals.joinToString(", ")}")
+            }
+
+            val success = forexService.fetchAndStoreHistoricalDataByDate(
+                currencyPair = currencyPair,
+                interval = interval,
+                startDate = startDate,
+                endDate = endDate
+            )
+
+            if (success) {
+                ResponseEntity.ok(
+                    "Historical data for $currencyPair (interval=$interval) from $startDate to $endDate successfully stored!"
+                )
+            } else {
+                ResponseEntity.status(500)
+                    .body("No historical data was stored for $currencyPair from $startDate to $endDate")
+            }
+
+        } catch (e: Exception) {
+            ResponseEntity.internalServerError()
+                .body("Error storing historical data for $currencyPair: ${e.message}")
+        }
+    }
+
     @PostMapping("/transform")
     fun triggerDataTransformation(): ResponseEntity<String> {
         return try {
