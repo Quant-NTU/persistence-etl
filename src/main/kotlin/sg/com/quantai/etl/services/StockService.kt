@@ -51,10 +51,14 @@ class StockService(
 
     fun storeHistoricalDataForTopSymbols() {
         val topSymbols = getTopStockSymbols()
+        val startDate = "2010-01-01"
+        val endDate = LocalDate.now().toString()
 
         topSymbols.forEach { symbol ->
             try {
-                fetchAndStoreHistoricalData(symbol, 30, "1day")
+                logger.info("Fetching 14-year history for $symbol ($startDate to $endDate)")
+                fetchAndStoreHistoricalDataByDate(symbol, "1day", startDate, endDate)
+                Thread.sleep(1000)
             } catch (e: Exception) {
                 logger.error("Error storing historical data for $symbol: ${e.message}")
             }

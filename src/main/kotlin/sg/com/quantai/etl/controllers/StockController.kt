@@ -99,13 +99,13 @@ class StockController(
     ): ResponseEntity<Map<String, Any>> {
         return try {
             // Validate and coerce days parameter
-            val effectiveDays = days.coerceIn(1, 365)
+            val effectiveDays = days.coerceIn(1, 5000)
             val warning: String? = when {
                 days < 1 -> "Parameter 'days' must be at least 1. Adjusted from $days to $effectiveDays."
-                days > 365 -> "Parameter 'days' cannot exceed 365. Adjusted from $days to $effectiveDays."
+                days > 5000 -> "Parameter 'days' cannot exceed 5000. Adjusted from $days to $effectiveDays."
                 else -> null
             }
-            
+
             val data = stockService.fetchSP500DailyPrices(effectiveDays)
             
             val response = mutableMapOf<String, Any>(
