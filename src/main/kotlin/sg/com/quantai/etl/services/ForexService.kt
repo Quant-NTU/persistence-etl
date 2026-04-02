@@ -171,14 +171,6 @@ class ForexService(
                           record.low, record.close, record.startDateTime, record.endDateTime, record.timestamp)
     }
 
-    private fun checkIfDataExists(currencyPair: String, timestamp: Timestamp, interval: String = "1day"): Boolean {
-        val sql = """
-            SELECT COUNT(*) FROM raw_forex_data WHERE currency_pair = ? AND timestamp = ? AND interval = ?
-        """
-        val count = jdbcTemplate.queryForObject(sql, Int::class.java, currencyPair, timestamp, interval)
-        return count != null && count > 0
-    }
-
     private fun parseTimestamp(datetime: String, interval: String = "1day"): Timestamp {
         return when {
             interval.contains("min") || interval.contains("h") -> {
