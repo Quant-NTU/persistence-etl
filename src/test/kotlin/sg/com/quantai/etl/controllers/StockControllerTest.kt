@@ -115,7 +115,7 @@ class StockControllerTest {
         // Assert
         assertEquals(HttpStatus.OK, response.statusCode)
         assertEquals(
-            "Historical data for AAPL (interval=1day) from 2025-10-01 to 2025-10-31 successfully stored!",
+            "Historical data for AAPL from 2025-10-01 to 2025-10-31 successfully stored!",
             response.body
         )
     }
