@@ -33,6 +33,7 @@ class StockService(
     private val webClientBuilder: WebClient.Builder,
     @Value("\${quantai.external.api.twelvedata.url}") private val twelveDataBaseUrl: String,
     @Value("\${quantai.external.api.twelvedata.key}") private val apiKey: String,
+    @Value("\${quantai.etl.stock.rate-limit-ms:1000}") private val rateLimitMs: Long,
     private val objectMapper: ObjectMapper,
     private val jdbcTemplate: JdbcTemplate,
     private val twelveDataApiClient: TwelveDataApiClient
@@ -58,7 +59,7 @@ class StockService(
             try {
                 logger.info("Fetching 14-year history for $symbol ($startDate to $endDate)")
                 fetchAndStoreHistoricalDataByDate(symbol, "1day", startDate, endDate)
-                Thread.sleep(1000)
+                Thread.sleep(rateLimitMs)
             } catch (e: Exception) {
                 logger.error("Error storing historical data for $symbol: ${e.message}")
             }

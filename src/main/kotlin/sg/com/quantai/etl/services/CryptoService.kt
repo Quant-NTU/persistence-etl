@@ -58,14 +58,7 @@ class CryptoService(
             try {
                 val historicalData = fetchHistoricalData(symbol, "USD", 10)
                 if (historicalData != null && historicalData.isArray) {
-                    historicalData.forEach { node ->
-                        val timestamp = Timestamp.from(Instant.ofEpochSecond(node["time"].asLong()))
-                        if (!checkIfDataExists(symbol, timestamp)) {
-                            insertHistoricalData(node, symbol, "USD")
-                        } else {
-                            logger.info("Data for $symbol at $timestamp already exists. Skipping storage.")
-                        }
-                    }
+                    historicalData.forEach { node -> insertHistoricalData(node, symbol, "USD") }
                 }
             } catch (e: Exception) {
                 logger.error("Error storing historical data for $symbol: ${e.message}")
@@ -80,14 +73,7 @@ class CryptoService(
             return
         }
 
-        historicalData.forEach { node ->
-            val timestamp = Timestamp.from(Instant.ofEpochSecond(node["time"].asLong()))
-            if (!checkIfDataExists(symbol, timestamp)) {
-                insertHistoricalData(node, symbol, currency)
-            } else {
-                logger.info("Data for $symbol at $timestamp already exists. Skipping storage.")
-            }
-        }
+        historicalData.forEach { node -> insertHistoricalData(node, symbol, currency) }
     }
 
     fun fetchHistoricalData(symbol: String, currency: String, limit: Int): JsonNode? {
@@ -150,14 +136,7 @@ class CryptoService(
                 return
             }
 
-            dataArray.forEach { node ->
-                val timestamp = Timestamp.from(Instant.ofEpochSecond(node["time"].asLong()))
-                if (!checkIfDataExists(symbol, timestamp)) {
-                    insertHistoricalData(node, symbol, currency)
-                } else {
-                    logger.info("Data for $symbol at $timestamp already exists. Skipping.")
-                }
-            }
+            dataArray.forEach { node -> insertHistoricalData(node, symbol, currency) }
 
             logger.info("✅ Successfully stored historical data for $symbol from $startDate to $endDate")
 
@@ -195,6 +174,7 @@ class CryptoService(
             val sql = """
                 INSERT INTO raw_crypto_compare_crypto_data (symbol, currency, open, high, low, close, volume_from, volume_to, timestamp)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT (symbol, timestamp) DO NOTHING
             """
             jdbcTemplate.update(sql, symbol, currency, open, high, low, close, volumeFrom, volumeTo, timestamp)
         } catch (e: Exception) {
@@ -235,14 +215,6 @@ class CryptoService(
     }
 
 
-
-    private fun checkIfDataExists(symbol: String, timestamp: Timestamp): Boolean {
-        val sql = """
-            SELECT COUNT(*) FROM raw_crypto_compare_crypto_data WHERE symbol = ? AND timestamp = ?
-        """
-        val count = jdbcTemplate.queryForObject(sql, Int::class.java, symbol, timestamp)
-        return count != null && count > 0
-    }
 
     /**
      * Fetch historical price data for chart display (without storing).

@@ -20,7 +20,8 @@ import reactor.util.retry.Retry
 
 @Service
 class NewsArticleBBCService(
-    @Autowired private val newsArticlesBBCRepository: NewsArticleBBCRepository
+    @Autowired private val newsArticlesBBCRepository: NewsArticleBBCRepository,
+    private val objectMapper: ObjectMapper
 ) {
 
     @Value("\${quantai.external.api.newsarticle.bbc}")
@@ -100,7 +101,6 @@ class NewsArticleBBCService(
     }
 
     private fun parseResponse(response: String): JsonNode {
-        val objectMapper = ObjectMapper()
         return objectMapper.readTree(response)
     }
 
