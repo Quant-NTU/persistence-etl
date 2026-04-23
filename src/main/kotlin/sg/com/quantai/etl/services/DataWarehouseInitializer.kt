@@ -434,24 +434,24 @@ class DataWarehouseInitializer(val jdbcTemplate: JdbcTemplate) {
                 CREATE OR REPLACE VIEW ohlc_1hour_aggregate AS
                 SELECT 
                     ds.symbol_id,
-                    mv.trading_day as bucket,
+                    mv.trading_hour as bucket,
                     COALESCE(mv.total_volume, 0) as total_volume,
                     COALESCE(mv.total_volume / NULLIF(mv.record_count, 0), 0) as avg_volume,
                     COALESCE(mv.total_volume, 0) as max_volume,
                     0::numeric as min_volume,
-                    COALESCE(mv.day_open, 0) as first_open,
-                    COALESCE(mv.day_close, 0) as last_close,
-                    COALESCE(mv.day_high, 0) as max_high,
-                    COALESCE(mv.day_low, 0) as min_low,
+                    COALESCE(mv.hour_open, 0) as first_open,
+                    COALESCE(mv.hour_close, 0) as last_close,
+                    COALESCE(mv.hour_high, 0) as max_high,
+                    COALESCE(mv.hour_low, 0) as min_low,
                     COALESCE(mv.avg_close_price, 0) as avg_close,
                     COALESCE(
                         CASE 
-                            WHEN mv.day_low > 0 THEN (mv.day_high - mv.day_low) / mv.day_low * 100 
+                            WHEN mv.hour_low > 0 THEN (mv.hour_high - mv.hour_low) / mv.hour_low * 100 
                             ELSE 0 
                         END, 0
                     ) as volatility,
                     COALESCE(mv.record_count, 0) as record_count
-                FROM mv_daily_ohlc_summary mv
+                FROM mv_hourly_ohlc_summary mv
                 JOIN dim_symbol ds ON mv.symbol_code = ds.symbol_code;
             """)
             logger.info("View 'ohlc_1hour_aggregate' created.")

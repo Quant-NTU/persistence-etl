@@ -144,6 +144,7 @@ class ForexControllerTest {
         assertEquals("success", body["status"])
         assertEquals(0, body["count"])
     }
+    @Test
     fun `should fetch and store historical forex data by date successfully`() {
         // Arrange
         `when`(forexService.getSupportedIntervals())
