@@ -35,7 +35,7 @@ class CryptoController(
     /**
      * Fetch and store historical cryptocurrency data by date
      * Example Usage:
-     * POST /crypto/historical/store?symbol=BTC&currency=USD&startDate=2025-10-01&endDate=2025-10-31
+     * POST /crypto/historical/store-by-date?symbol=BTC&currency=USD&startDate=2025-10-01&endDate=2025-10-31
      */
     @PostMapping("/historical/store-by-date")
     fun fetchAndStoreHistoricalDataByDate(
