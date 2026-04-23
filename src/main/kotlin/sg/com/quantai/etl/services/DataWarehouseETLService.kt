@@ -195,7 +195,7 @@ class DataWarehouseETLService(
         ) ?: 0L
         
         // Load only recent data
-        jdbcTemplate.execute("""
+        jdbcTemplate.update("""
             INSERT INTO dim_symbol (symbol_code, asset_type_id, symbol_name, is_active)
             SELECT DISTINCT 
                 ts.symbol,
@@ -203,11 +203,11 @@ class DataWarehouseETLService(
                 ts.symbol,
                 true
             FROM transformed_stock_data ts
-            WHERE ts.timestamp > NOW() - INTERVAL '$hoursBack hours'
+            WHERE ts.timestamp > NOW() - INTERVAL '1 hour' * ?
             ON CONFLICT (symbol_code, asset_type_id) DO NOTHING;
-        """)
+        """, hoursBack)
         
-        jdbcTemplate.execute("""
+        jdbcTemplate.update("""
             INSERT INTO fact_ohlc_data (
                 symbol_id, asset_type_id, interval_id, timestamp,
                 open, high, low, close, volume, price_change, source_table
@@ -228,9 +228,9 @@ class DataWarehouseETLService(
             JOIN dim_symbol ds ON ts.symbol = ds.symbol_code 
                 AND ds.asset_type_id = (SELECT asset_type_id FROM dim_asset_type WHERE asset_type_code = 'STOCK')
             JOIN dim_time_interval dti ON ts.interval = dti.interval_code
-            WHERE ts.timestamp > NOW() - INTERVAL '$hoursBack hours'
+            WHERE ts.timestamp > NOW() - INTERVAL '1 hour' * ?
             ON CONFLICT DO NOTHING;
-        """)
+        """, hoursBack)
         
         val countAfter = jdbcTemplate.queryForObject(
             "SELECT COUNT(*) FROM fact_ohlc_data WHERE asset_type_id = (SELECT asset_type_id FROM dim_asset_type WHERE asset_type_code = 'STOCK')",
@@ -304,7 +304,7 @@ class DataWarehouseETLService(
             Long::class.java
         ) ?: 0L
         
-        jdbcTemplate.execute("""
+        jdbcTemplate.update("""
             INSERT INTO dim_symbol (symbol_code, asset_type_id, symbol_name, is_active)
             SELECT DISTINCT 
                 tf.currency_pair,
@@ -312,11 +312,11 @@ class DataWarehouseETLService(
                 tf.currency_pair,
                 true
             FROM transformed_forex_data tf
-            WHERE tf.timestamp > NOW() - INTERVAL '$hoursBack hours'
+            WHERE tf.timestamp > NOW() - INTERVAL '1 hour' * ?
             ON CONFLICT (symbol_code, asset_type_id) DO NOTHING;
-        """)
+        """, hoursBack)
         
-        jdbcTemplate.execute("""
+        jdbcTemplate.update("""
             INSERT INTO fact_ohlc_data (
                 symbol_id, asset_type_id, interval_id, timestamp,
                 open, high, low, close, price_change, source_table
@@ -336,9 +336,9 @@ class DataWarehouseETLService(
             JOIN dim_symbol ds ON tf.currency_pair = ds.symbol_code 
                 AND ds.asset_type_id = (SELECT asset_type_id FROM dim_asset_type WHERE asset_type_code = 'FOREX')
             JOIN dim_time_interval dti ON tf.interval = dti.interval_code
-            WHERE tf.timestamp > NOW() - INTERVAL '$hoursBack hours'
+            WHERE tf.timestamp > NOW() - INTERVAL '1 hour' * ?
             ON CONFLICT DO NOTHING;
-        """)
+        """, hoursBack)
         
         val countAfter = jdbcTemplate.queryForObject(
             "SELECT COUNT(*) FROM fact_ohlc_data WHERE asset_type_id = (SELECT asset_type_id FROM dim_asset_type WHERE asset_type_code = 'FOREX')",
@@ -417,7 +417,7 @@ class DataWarehouseETLService(
             Long::class.java
         ) ?: 0L
         
-        jdbcTemplate.execute("""
+        jdbcTemplate.update("""
             INSERT INTO dim_symbol (symbol_code, asset_type_id, symbol_name, currency, is_active)
             SELECT DISTINCT 
                 tc.symbol,
@@ -426,11 +426,11 @@ class DataWarehouseETLService(
                 tc.currency,
                 true
             FROM transformed_crypto_data tc
-            WHERE tc.timestamp > NOW() - INTERVAL '$hoursBack hours'
+            WHERE tc.timestamp > NOW() - INTERVAL '1 hour' * ?
             ON CONFLICT (symbol_code, asset_type_id) DO NOTHING;
-        """)
+        """, hoursBack)
         
-        jdbcTemplate.execute("""
+        jdbcTemplate.update("""
             INSERT INTO fact_ohlc_data (
                 symbol_id, asset_type_id, interval_id, timestamp,
                 open, high, low, close, volume_from, volume_to, 
@@ -453,9 +453,9 @@ class DataWarehouseETLService(
             FROM transformed_crypto_data tc
             JOIN dim_symbol ds ON tc.symbol = ds.symbol_code 
                 AND ds.asset_type_id = (SELECT asset_type_id FROM dim_asset_type WHERE asset_type_code = 'CRYPTO')
-            WHERE tc.timestamp > NOW() - INTERVAL '$hoursBack hours'
+            WHERE tc.timestamp > NOW() - INTERVAL '1 hour' * ?
             ON CONFLICT DO NOTHING;
-        """)
+        """, hoursBack)
         
         val countAfter = jdbcTemplate.queryForObject(
             "SELECT COUNT(*) FROM fact_ohlc_data WHERE asset_type_id = (SELECT asset_type_id FROM dim_asset_type WHERE asset_type_code = 'CRYPTO')",
